@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
+
+@keyframes scan-line { 0%{top:0;opacity:0.6} 100%{top:100%;opacity:0} }
+@keyframes flicker { 0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:0.4} 94%{opacity:1} 96%{opacity:0.8} 97%{opacity:1} }
+@keyframes glow-in { 0%{box-shadow:0 0 20px #ff4500aa,0 0 40px #ff450055} 100%{box-shadow:none} }
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+.fire-row-new { animation: glow-in 3s ease-out forwards; border-left: 2px solid #ff4500 !important; }
+.fire-row:hover { background: rgba(255,69,0,0.08) !important; cursor: pointer; }
+.header-title { animation: flicker 8s infinite; }
+.spin-icon { animation: spin 1s linear infinite; display: inline-block; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: #ff4500; }
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: #0a0a0f;
+}
