@@ -137,9 +137,7 @@ Already tracked (skip these): ${existingList}
 Headlines:
 ${articleList}
 
-From the headlines above, extract all confirmed fires in the US. A confirmed fire is one that has already occurred and is not a near-miss, drill, or unverified report. Focus on fires at warehouses, factories, distribution centers, manufacturing plants, or other industrial facilities. Exclude wildfires, residential fires, and general mentions of "fire" that don't clearly indicate an incident.
-For each valid new incident output exactly one line:
-- City, ST | YYYY-MM-DD | Facility type | Building name | Brief description
+From the headlines above, extract all confirmed fires in the US. Skip duplicate buildings.
 
 If none qualify: NO_NEW_FIRES
 No other text.`;
