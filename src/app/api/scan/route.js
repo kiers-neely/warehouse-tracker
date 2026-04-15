@@ -18,7 +18,7 @@ export async function POST(request) {
   const trimmed = existingLocations.slice(0, 15);
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
-  const prompt = `Search news for US warehouse, factory, or distribution center fires since April 7 2026. Skip already tracked: ${existingList}
+  const prompt = `You are a fire incident tracker. Search news for all fires at warehouses, manufacturing plants, factories, or distribution centers in the USA since April 7 2026. Skip already tracked: ${existingList}
 
 For each new incident output one line:
 - City, ST | YYYY-MM-DD | Facility type | Brief description
