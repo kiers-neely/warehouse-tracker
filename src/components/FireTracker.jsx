@@ -233,7 +233,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
   const [imgError, setImgError] = useState(false);
 
   // Put your map file in /public/us-map.svg (or .png)
-  const MAP_URL = "/us-map.svg";
+  const MAP_URL = "/us-map.png";
 
   return (
     <div style={{ position: "relative", lineHeight: 0, borderRadius: 6, overflow: "hidden", background: "#0d1e30" }}>
