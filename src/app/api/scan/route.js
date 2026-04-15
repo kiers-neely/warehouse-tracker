@@ -18,13 +18,23 @@ export async function POST(request) {
   const trimmed = existingLocations.slice(0, 15);
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
-  const prompt = `Search news for US warehouse, industrial plant, manufacturing center, commercial factory, or distribution center fires since April 7 2026. Skip already tracked: ${existingList}
+  const prompt = `You are a fire incident tracker. Search for recent news reports of warehouse fires, manufacturing plant fires, distribution center fires, or industrial facility fires anywhere in the United States from the past 2 weeks.
 
-For each new incident output one line:
-- City, ST | YYYY-MM-DD | Facility type | Brief description
+${existingList}
 
-If none: NO_NEW_FIRES
-No other text.`;
+Return ONLY new fires not already in the list above. For each fire found, output exactly one line in this format:
+- City/Location, ST | Date (YYYY-MM-DD or approx) | Facility type | Brief source/description
+
+Example:
+- Memphis, TN | 2025-04-10 | Distribution center | Large fire at Amazon warehouse
+- Detroit, MI | 2025-04-09 | Auto parts manufacturer | Fire destroys parts plant
+
+Rules:
+- Only include real confirmed fire incidents found via web search
+- Only US locations
+- State must be the 2-letter abbreviation
+- If no new fires found, output exactly: NO_NEW_FIRES
+- Do not include any other text, preamble, or explanation`;
 
   const attemptFetch = async (attemptsLeft) => {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
