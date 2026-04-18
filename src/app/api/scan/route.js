@@ -1,6 +1,8 @@
 // src/app/api/scan/route.js
 // SERVER-SIDE ONLY — API key never reaches the browser.
 
+export const maxDuration = 60; // seconds — overrides Vercel's default 10s function timeout
+
 export async function POST(request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
