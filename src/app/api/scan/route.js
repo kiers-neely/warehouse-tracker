@@ -23,6 +23,8 @@ export async function POST(request) {
   // Step 1: Fetch headlines from Google News RSS — no API key, no rate limits.
   // Switched from GDELT which enforces a strict 1-request-per-5s limit that
   // proved unreliable across Vercel's serverless instances.
+  const CUTOFF_DATE = new Date("2026-04-07T00:00:00Z");
+
   function parseRSS(xml) {
     const items = [];
     const itemRe = /<item>([\s\S]*?)<\/item>/g;
@@ -34,7 +36,8 @@ export async function POST(request) {
       if (title && !title.toLowerCase().includes("google news")) {
         // Convert pubDate to YYYY-MM-DD
         const d = pubDate ? new Date(pubDate) : null;
-        const dateStr = d && !isNaN(d) ? d.toISOString().slice(0, 10) : "unknown";
+        if (!d || isNaN(d) || d < CUTOFF_DATE) continue;
+        const dateStr = d.toISOString().slice(0, 10);
         items.push(`${title} (${dateStr})`);
       }
     }
