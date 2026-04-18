@@ -62,8 +62,16 @@ export default function FireTracker() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [hoveredFire, setHoveredFire] = useState(null);
   const [highlightedFire, setHighlightedFire] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
   const firesRef = useRef(fires);
   firesRef.current = fires;
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const scan = useCallback(async () => {
     setStatus("scanning");
@@ -130,8 +138,9 @@ export default function FireTracker() {
 
   return (
     <div style={{
-      height: "100vh",
-      overflow: "hidden",
+      minHeight: "100vh",
+      height: isMobile ? "auto" : "100vh",
+      overflow: isMobile ? "auto" : "hidden",
       background: "#0a0a0f",
       color: "#e8e0d5",
       fontFamily: "'DM Mono', 'Courier New', monospace",
@@ -142,10 +151,12 @@ export default function FireTracker() {
       {/* Header */}
       <div style={{
         borderBottom: "1px solid #2a1a0f",
-        padding: "20px 32px",
+        padding: isMobile ? "14px 16px" : "20px 32px",
         display: "flex",
-        alignItems: "center",
+        alignItems: isMobile ? "flex-start" : "center",
         justifyContent: "space-between",
+        flexDirection: isMobile ? "column" : "row",
+        gap: isMobile ? 10 : 0,
         background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
         flexShrink: 0,
         backdropFilter: "blur(8px)",
@@ -164,8 +175,8 @@ export default function FireTracker() {
             INDUSTRIAL & MANUFACTURING FACILITY INCIDENTS · NATIONWIDE
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 11, color: "#c09070" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: isMobile ? "flex-start" : "flex-end", gap: 6, width: isMobile ? "100%" : "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 11, color: "#c09070", width: isMobile ? "100%" : "auto", justifyContent: isMobile ? "space-between" : "flex-end" }}>
             <div style={{
               background: "#1a0a05", border: "1px solid #2a1505", borderRadius: 4,
               padding: "6px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
@@ -213,10 +224,12 @@ export default function FireTracker() {
         </div>
       )}
 
-      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", flex: isMobile ? "none" : 1, minHeight: 0, overflow: isMobile ? "visible" : "hidden", flexDirection: isMobile ? "column" : "row" }}>
         {/* Map */}
         <div style={{
-          flex: "0 0 55%", borderRight: "1px solid #1a0f08",
+          flex: isMobile ? "none" : "0 0 55%",
+          borderRight: isMobile ? "none" : "1px solid #1a0f08",
+          borderBottom: isMobile ? "1px solid #1a0f08" : "none",
           position: "relative", overflow: "hidden", background: "#05080f",
         }}>
           {status === "scanning" && (
@@ -241,12 +254,13 @@ export default function FireTracker() {
               hoveredFire={hoveredFire}
               setHoveredFire={setHoveredFire}
               highlightedFire={highlightedFire}
+              isMobile={isMobile}
             />
           </div>
         </div>
 
         {/* Log */}
-        <div style={{ flex: "0 0 45%", overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div style={{ flex: isMobile ? "none" : "0 0 45%", overflowY: isMobile ? "visible" : "auto", overflowX: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{
             padding: "12px 20px", borderBottom: "1px solid #2a1a10", fontSize: 9,
             letterSpacing: "0.2em", color: "#8a6a55", position: "sticky", top: 0,
@@ -301,18 +315,18 @@ export default function FireTracker() {
       </div>
 
       <div style={{
-        borderTop: "1px solid #2a1a10", padding: "8px 32px", fontSize: 9, color: "#7a5a48",
+        borderTop: "1px solid #2a1a10", padding: isMobile ? "8px 16px" : "8px 32px", fontSize: 9, color: "#7a5a48",
         display: "flex", justifyContent: "space-between", letterSpacing: "0.1em",
       }}>
-        <span>DATA SOURCED VIA GDELT NEWS INDEX · NOT OFFICIAL EMERGENCY SERVICES DATA</span>
-        <span>MANUAL SCAN · CLICK ↺ SCAN NOW TO REFRESH</span>
+        <span>DATA SOURCED VIA GOOGLE NEWS · NOT OFFICIAL EMERGENCY SERVICES DATA</span>
+        {!isMobile && <span>MANUAL SCAN · CLICK ↺ SCAN NOW TO REFRESH</span>}
       </div>
     </div>
   );
 }
 
 
-function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
+function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }) {
   return (
     <div style={{
       position: "relative", width: "100%", borderRadius: 4,
@@ -339,7 +353,8 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
         if (px < 0 || px > 100 || py < 0 || py > 100) return null;
         const isHighlighted = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
         const color = FIRE_COLORS[i % FIRE_COLORS.length];
-        const size = isHighlighted ? 16 : 10;
+        const baseSize = isMobile ? 13 : 10;
+        const size = isHighlighted ? baseSize + 6 : baseSize;
 
         const flipLeft = px > 65;
         const flipDown = py < 18;
@@ -348,6 +363,8 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
             key={fire.id}
             onMouseEnter={() => setHoveredFire(fire)}
             onMouseLeave={() => setHoveredFire(null)}
+            onPointerEnter={() => setHoveredFire(fire)}
+            onPointerLeave={() => setHoveredFire(null)}
             style={{
               position: "absolute",
               left: `${px}%`,
