@@ -20,44 +20,32 @@ export async function POST(request) {
   const trimmed = existingLocations.slice(0, 15);
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
-  // Step 1: Fetch recent fire headlines from GDELT (free, no API key, no token cost)
-  // Step 1: Fetch headlines from GDELT.
-  // Use timespan (known to work) calculated dynamically from the fixed start date.
-  // startdatetime/enddatetime caused GDELT to return a query-error plain-text response.
+  // Step 1: Fetch headlines from GDELT — single request to avoid the 1-per-5s rate limit.
+  // timespan calculated dynamically from fixed start date; startdatetime/enddatetime
+  // are not supported by the DOC API and return a plain-text error.
   const startMs = new Date("2026-04-07T00:00:00Z").getTime();
   const daysBack = Math.max(1, Math.ceil((Date.now() - startMs) / 86400000));
   const timespan = `${daysBack}d`;
 
-  async function gdeltFetch(q) {
-    const url =
-      `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}` +
-      `&mode=artlist&maxrecords=50&format=json&timespan=${timespan}`;
-    console.log("[scan] GDELT URL:", url);
-    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  const query =
+    '(("building fire" OR "warehouse fire" OR "factory fire" OR "plant fire" OR "office fire" OR "fire broke out" OR "caught fire") ' +
+    'OR ("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire")) ' +
+    'sourcelang:english';
+  const gdeltUrl =
+    `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}` +
+    `&mode=artlist&maxrecords=75&format=json&timespan=${timespan}`;
+  console.log("[scan] GDELT URL:", gdeltUrl);
+
+  let articleList = [];
+  try {
+    const res = await fetch(gdeltUrl, { signal: AbortSignal.timeout(15000) });
     const raw = await res.text();
     console.log("[scan] GDELT raw snippet:", raw.slice(0, 200));
     let data;
-    try { data = JSON.parse(raw); } catch { return []; }
-    return data.articles ?? [];
-  }
-
-  let articleList = [];
-  // GDELT requires requests spaced at least 5 seconds apart.
-  const batches = [
-    '("building fire" OR "warehouse fire" OR "factory fire" OR near5:"manufacturing fire" OR "office fire") sourcelang:english'
-    '("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire") sourcelang:english',
-  ];
-  const seen = new Set();
-  for (let i = 0; i < batches.length; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, 5500));
-    try {
-      const articles = await gdeltFetch(batches[i]);
-      for (const a of articles) {
-        if (a.url && !seen.has(a.url)) { seen.add(a.url); articleList.push(a); }
-      }
-    } catch (err) {
-      console.log("[scan] GDELT batch failed:", err.message);
-    }
+    try { data = JSON.parse(raw); } catch { data = {}; }
+    articleList = data.articles ?? [];
+  } catch (err) {
+    console.log("[scan] GDELT fetch failed:", err.message);
   }
   console.log(`[scan] GDELT total unique articles: ${articleList.length}`);
 
