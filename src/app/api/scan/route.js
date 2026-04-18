@@ -18,33 +18,56 @@ export async function POST(request) {
   const trimmed = existingLocations.slice(0, 15);
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
-  const prompt = `You are a fire incident tracker. Use web search to find recent news reports of fires at any commercial or business location anywhere in the United States from the past 2 weeks. Cast a wide net and run multiple searches.
+  // Step 1: Fetch recent fire headlines from GDELT (free, no API key, no token cost)
+  let articles = "";
+  try {
+    const query = encodeURIComponent(
+      'fire (warehouse OR factory OR "office building" OR "commercial building" OR ' +
+      '"distribution center" OR "manufacturing plant" OR "shopping center" OR ' +
+      '"retail store" OR "business park" OR "industrial park" OR hotel OR restaurant OR hospital OR school) ' +
+      'sourcelang:english sourcecountry:US'
+    );
+    const gdeltUrl =
+      `https://api.gdeltproject.org/api/v2/doc/doc?query=${query}` +
+      `&mode=artlist&maxrecords=75&format=json&timespan=2w`;
 
-  Included location types (any of these count):
-  - Warehouses, distribution centers, fulfillment centers, storage facilities
-  - Manufacturing plants, factories, industrial facilities
-  - Office buildings, corporate campuses, business parks
-  - Retail stores, shopping centers, strip malls
-  - Restaurants, hotels, apartment complexes with commercial use
-  - Schools, hospitals, government buildings, data centers
-  - Any other building associated with a business or organization
+    const newsRes = await fetch(gdeltUrl, { signal: AbortSignal.timeout(12000) });
+    if (newsRes.ok) {
+      const newsData = await newsRes.json();
+      articles = (newsData.articles ?? [])
+        .map((a) => `${a.title} (${a.seendate?.slice(0, 8) ?? "unknown"})`)
+        .join("\n");
+      console.log(`[scan] GDELT returned ${newsData.articles?.length ?? 0} articles`);
+    } else {
+      console.log("[scan] GDELT responded with status", newsRes.status);
+    }
+  } catch (err) {
+    console.log("[scan] GDELT fetch failed:", err.message);
+  }
 
-  Already tracked locations (exclude these from your response): ${existingList}
+  if (!articles) {
+    return Response.json({ text: "NO_NEW_FIRES" });
+  }
 
-  Return ONLY new fires not already in the list above. For each fire found, output exactly one line in this format:
-  - City/Location, ST | Date (YYYY-MM-DD or approx) | Facility type | Brief source/description
+  // Step 2: Send only the article titles to Claude for structured extraction.
+  // No web_search tool needed — input tokens are now ~1-2K instead of 30-50K.
+  const prompt = `You are a fire incident data extractor. Below are recent US news article headlines. Extract every fire that occurred at a commercial or business location.
 
-  Example:
-  - Memphis, TN | 2025-04-10 | Distribution center | Large fire at Amazon warehouse
-  - Detroit, MI | 2025-04-09 | Auto parts manufacturer | Fire destroys parts plant
-  - Austin, TX | 2025-04-08 | Office building | Fire on third floor of tech company HQ
+Headlines:
+${articles}
 
-  Rules:
-  - Search for real confirmed fire incidents using web search - do not fabricate any
-  - Only US locations; state must be the 2-letter abbreviation
-  - List every fire you find across all searches - do not truncate the list
-  - If no new fires found after searching, output exactly: NO_NEW_FIRES
-  - Do not include any other text, preamble, or explanation`;
+Already tracked locations (exclude these): ${existingList}
+
+For each qualifying fire, output exactly one line:
+- City/Location, ST | Date (YYYY-MM-DD) | Facility type | Brief description
+
+Included location types: warehouses, factories, distribution centers, office buildings, corporate campuses, retail stores, shopping centers, restaurants, hotels, hospitals, schools, government buildings, data centers, or any other commercial/business property.
+Excluded: purely residential fires (houses, apartment fires with no commercial component).
+
+Rules:
+- Only US locations; state must be the 2-letter abbreviation
+- If no qualifying fires are found, output exactly: NO_NEW_FIRES
+- No other text, preamble, or explanation`;
 
   const attemptFetch = async (attemptsLeft) => {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -53,12 +76,10 @@ export async function POST(request) {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
-        "anthropic-beta": "web-search-2025-03-05",
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2048,
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -75,15 +96,7 @@ export async function POST(request) {
     }
 
     const data = await res.json();
-    // Log full content array so we can diagnose parsing issues in Vercel function logs
     console.log("[scan] stop_reason:", data.stop_reason);
-    console.log("[scan] content blocks:", JSON.stringify(data.content?.map(b => ({
-      type: b.type,
-      text: b.type === "text" ? b.text?.slice(0, 300) : undefined,
-      name: b.name,
-    }))));
-    // Concatenate ALL text blocks — the model may emit a preamble before tool_use,
-    // then the actual fire list in a second text block after the search results.
     const text = (data.content ?? [])
       .filter((b) => b.type === "text")
       .map((b) => b.text)
