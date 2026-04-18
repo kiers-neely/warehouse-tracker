@@ -1,7 +1,7 @@
 // src/app/api/scan/route.js
 // SERVER-SIDE ONLY — API key never reaches the browser.
 
-export const maxDuration = 60; // seconds — overrides Vercel's default 10s function timeout
+export const maxDuration = 60;
 
 export async function POST(request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -20,46 +20,55 @@ export async function POST(request) {
   const trimmed = existingLocations.slice(0, 15);
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
-  // Step 1: Fetch headlines from GDELT — single request to avoid the 1-per-5s rate limit.
-  // timespan calculated dynamically from fixed start date; startdatetime/enddatetime
-  // are not supported by the DOC API and return a plain-text error.
-  const startMs = new Date("2026-04-07T00:00:00Z").getTime();
-  const daysBack = Math.max(1, Math.ceil((Date.now() - startMs) / 86400000));
-  const timespan = `${daysBack}d`;
-
-  const query =
-    '(("warehouse fire" OR "factory fire" OR "plant fire" OR "office fire" OR "industrial fire" OR "commercial fire") ' +
-    'OR ("store fire" OR "hotel fire" OR "restaurant fire" OR "distribution center fire" OR "manufacturing fire")) ' +
-    'sourcelang:english';
-  const gdeltUrl =
-    `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}` +
-    `&mode=artlist&maxrecords=75&format=json&timespan=${timespan}`;
-  console.log("[scan] GDELT URL:", gdeltUrl);
-
-  let articleList = [];
-  try {
-    const res = await fetch(gdeltUrl, { signal: AbortSignal.timeout(15000) });
-    const raw = await res.text();
-    console.log("[scan] GDELT raw snippet:", raw.slice(0, 200));
-    let data;
-    try { data = JSON.parse(raw); } catch { data = {}; }
-    articleList = data.articles ?? [];
-  } catch (err) {
-    console.log("[scan] GDELT fetch failed:", err.message);
+  // Step 1: Fetch headlines from Google News RSS — no API key, no rate limits.
+  // Switched from GDELT which enforces a strict 1-request-per-5s limit that
+  // proved unreliable across Vercel's serverless instances.
+  function parseRSS(xml) {
+    const items = [];
+    const itemRe = /<item>([\s\S]*?)<\/item>/g;
+    let m;
+    while ((m = itemRe.exec(xml)) !== null) {
+      const block = m[1];
+      const title = (block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/) ?? [])[1]?.trim();
+      const pubDate = (block.match(/<pubDate>(.*?)<\/pubDate>/) ?? [])[1]?.trim();
+      if (title && !title.toLowerCase().includes("google news")) {
+        // Convert pubDate to YYYY-MM-DD
+        const d = pubDate ? new Date(pubDate) : null;
+        const dateStr = d && !isNaN(d) ? d.toISOString().slice(0, 10) : "unknown";
+        items.push(`${title} (${dateStr})`);
+      }
+    }
+    return items;
   }
-  console.log(`[scan] GDELT total unique articles: ${articleList.length}`);
 
-  const articles = articleList
-    .map((a) => `${a.title} (${a.seendate?.slice(0, 8) ?? "unknown"})`)
-    .join("\n");
+  const rssQuery = encodeURIComponent(
+    'warehouse fire OR factory fire OR "office building fire" OR "plant fire" OR ' +
+    '"store fire" OR "hotel fire" OR "restaurant fire" OR "distribution center fire" OR "manufacturing plant fire"'
+  );
+  const rssUrl = `https://news.google.com/rss/search?q=${rssQuery}&hl=en-US&gl=US&ceid=US:en`;
+  console.log("[scan] RSS URL:", rssUrl);
+
+  let articleLines = [];
+  try {
+    const res = await fetch(rssUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; fire-tracker/1.0)" },
+      signal: AbortSignal.timeout(15000),
+    });
+    const xml = await res.text();
+    console.log("[scan] RSS snippet:", xml.slice(0, 200));
+    articleLines = parseRSS(xml);
+  } catch (err) {
+    console.log("[scan] RSS fetch failed:", err.message);
+  }
+  console.log(`[scan] RSS articles parsed: ${articleLines.length}`);
+
+  const articles = articleLines.join("\n");
 
   if (!articles) {
     return Response.json({ text: "NO_NEW_FIRES", articleCount: 0 });
   }
 
-  // Step 2: Send only the article titles to Claude for structured extraction.
-  // No web_search tool needed — input tokens are now ~1-2K instead of 30-50K.
-  const prompt = `You are a fire incident data extractor. Below are recent US news article headlines. Extract every fire that occurred at a commercial or business location.
+  const prompt = `You are a fire incident data extractor. Below are recent news article headlines. Extract every fire that occurred at a for-profit commercial or business location in the United States.
 
 Headlines:
 ${articles}
@@ -111,7 +120,7 @@ Rules:
       .map((b) => b.text)
       .join("\n")
       .trim();
-    return Response.json({ text, stopReason: data.stop_reason, articleCount: articleList.length });
+    return Response.json({ text, stopReason: data.stop_reason, articleCount: articleLines.length });
   };
 
   try {
