@@ -18,33 +18,71 @@ export async function POST(request) {
   const trimmed = existingLocations.slice(0, 15);
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
-  const prompt = `You are a fire incident tracker. Use web search to find recent news reports of fires at any commercial or business location anywhere in the United States from the past 2 weeks. Cast a wide net and run multiple searches.
+  // Step 1: Fetch recent fire headlines from GDELT (free, no API key, no token cost)
+  // Step 1: Fetch headlines from GDELT.
+  // Use timespan (known to work) calculated dynamically from the fixed start date.
+  // startdatetime/enddatetime caused GDELT to return a query-error plain-text response.
+  const startMs = new Date("2026-04-07T00:00:00Z").getTime();
+  const daysBack = Math.max(1, Math.ceil((Date.now() - startMs) / 86400000));
+  const timespan = `${daysBack}d`;
 
-  Included location types (any of these count):
-  - Warehouses, distribution centers, fulfillment centers, storage facilities
-  - Manufacturing plants, factories, industrial facilities
-  - Office buildings, corporate campuses, business parks
-  - Retail stores, shopping centers, strip malls
-  - Restaurants, hotels, apartment complexes with commercial use
-  - Schools, hospitals, government buildings, data centers
-  - Any other building associated with a business or organization
+  async function gdeltFetch(q) {
+    const url =
+      `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}` +
+      `&mode=artlist&maxrecords=50&format=json&timespan=${timespan}`;
+    console.log("[scan] GDELT URL:", url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    const raw = await res.text();
+    console.log("[scan] GDELT raw snippet:", raw.slice(0, 200));
+    let data;
+    try { data = JSON.parse(raw); } catch { return []; }
+    return data.articles ?? [];
+  }
 
-  Already tracked locations (exclude these from your response): ${existingList}
+  let articleList = [];
+  const results = await Promise.allSettled([
+    gdeltFetch('("building fire" OR "warehouse fire" OR "factory fire" OR "plant fire" OR "office fire") sourcelang:english'),
+    gdeltFetch('("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire") sourcelang:english'),
+  ]);
+  const seen = new Set();
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const a of result.value) {
+        if (a.url && !seen.has(a.url)) { seen.add(a.url); articleList.push(a); }
+      }
+    } else {
+      console.log("[scan] GDELT batch failed:", result.reason?.message);
+    }
+  }
+  console.log(`[scan] GDELT total unique articles: ${articleList.length}`);
 
-  Return ONLY new fires not already in the list above. For each fire found, output exactly one line in this format:
-  - City/Location, ST | Date (YYYY-MM-DD or approx) | Facility type | Brief source/description
+  const articles = articleList
+    .map((a) => `${a.title} (${a.seendate?.slice(0, 8) ?? "unknown"})`)
+    .join("\n");
 
-  Example:
-  - Memphis, TN | 2025-04-10 | Distribution center | Large fire at Amazon warehouse
-  - Detroit, MI | 2025-04-09 | Auto parts manufacturer | Fire destroys parts plant
-  - Austin, TX | 2025-04-08 | Office building | Fire on third floor of tech company HQ
+  if (!articles) {
+    return Response.json({ text: "NO_NEW_FIRES", debug: "GDELT returned 0 articles" });
+  }
 
-  Rules:
-  - Search for real confirmed fire incidents using web search - do not fabricate any
-  - Only US locations; state must be the 2-letter abbreviation
-  - List every fire you find across all searches - do not truncate the list
-  - If no new fires found after searching, output exactly: NO_NEW_FIRES
-  - Do not include any other text, preamble, or explanation`;
+  // Step 2: Send only the article titles to Claude for structured extraction.
+  // No web_search tool needed — input tokens are now ~1-2K instead of 30-50K.
+  const prompt = `You are a fire incident data extractor. Below are recent US news article headlines. Extract every fire that occurred at a commercial or business location.
+
+Headlines:
+${articles}
+
+Already tracked locations (exclude these): ${existingList}
+
+For each qualifying fire, output exactly one line:
+- City/Location, ST | Date (YYYY-MM-DD) | Facility type | Brief description
+
+Included location types: warehouses, factories, distribution centers, office buildings, corporate campuses, retail stores, shopping centers, restaurants, hotels, hospitals, schools, government buildings, data centers, or any other commercial/business property.
+Excluded: purely residential fires (houses, apartment fires with no commercial component).
+
+Rules:
+- Only US locations; state must be the 2-letter abbreviation
+- If no qualifying fires are found, output exactly: NO_NEW_FIRES
+- No other text, preamble, or explanation`;
 
   const attemptFetch = async (attemptsLeft) => {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -53,12 +91,10 @@ export async function POST(request) {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
-        "anthropic-beta": "web-search-2025-03-05",
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2048,
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -75,15 +111,7 @@ export async function POST(request) {
     }
 
     const data = await res.json();
-    // Log full content array so we can diagnose parsing issues in Vercel function logs
     console.log("[scan] stop_reason:", data.stop_reason);
-    console.log("[scan] content blocks:", JSON.stringify(data.content?.map(b => ({
-      type: b.type,
-      text: b.type === "text" ? b.text?.slice(0, 300) : undefined,
-      name: b.name,
-    }))));
-    // Concatenate ALL text blocks — the model may emit a preamble before tool_use,
-    // then the actual fire list in a second text block after the search results.
     const text = (data.content ?? [])
       .filter((b) => b.type === "text")
       .map((b) => b.text)
