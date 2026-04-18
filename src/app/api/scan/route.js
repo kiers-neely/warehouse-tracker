@@ -42,8 +42,8 @@ export async function POST(request) {
   }
 
   const rssQuery = encodeURIComponent(
-    'warehouse fire OR factory fire OR "office building fire" OR "plant fire" OR ' +
-    '"store fire" OR "hotel fire" OR "restaurant fire" OR "distribution center fire" OR "manufacturing plant fire"'
+    'warehouse fire OR factory fire OR "office building fire" OR "industrial fire" OR ' +
+    '"commercial building fire" OR "store fire" OR "distribution center fire" OR "manufacturing facility fire"'
   );
   const rssUrl = `https://news.google.com/rss/search?q=${rssQuery}&hl=en-US&gl=US&ceid=US:en`;
   console.log("[scan] RSS URL:", rssUrl);
