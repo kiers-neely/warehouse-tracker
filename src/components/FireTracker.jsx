@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 // [x%, y%] centers derived by parsing actual path bounding boxes from the 959x593 SVG.
 const US_STATES_COORDS = {
@@ -59,13 +58,9 @@ export default function FireTracker() {
   const [fires, setFires] = useState([]);
   const [status, setStatus] = useState("idle");
   const [lastScan, setLastScan] = useState(null);
-  const [nextScan, setNextScan] = useState(null);
-  const [countdown, setCountdown] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [hoveredFire, setHoveredFire] = useState(null);
   const [highlightedFire, setHighlightedFire] = useState(null);
-  const timerRef = useRef(null);
-  const countdownRef = useRef(null);
   const firesRef = useRef(fires);
   firesRef.current = fires;
 
@@ -99,7 +94,6 @@ export default function FireTracker() {
         }
       }
       setLastScan(new Date());
-      setNextScan(new Date(Date.now() + POLL_INTERVAL_MS));
       setStatus("idle");
     } catch (e) {
       setStatus("error");
@@ -111,26 +105,6 @@ export default function FireTracker() {
     scan();
   }, []); // eslint-disable-line
 
-  useEffect(() => {
-    if (status === "idle" && nextScan) {
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => scan(), POLL_INTERVAL_MS);
-    }
-    return () => clearTimeout(timerRef.current);
-  }, [status, nextScan, scan]);
-
-  useEffect(() => {
-    if (!nextScan) return;
-    const tick = () => {
-      const diff = Math.max(0, nextScan - Date.now());
-      const mins = Math.floor(diff / 60000);
-      const secs = Math.floor((diff % 60000) / 1000);
-      setCountdown(`${mins}:${secs.toString().padStart(2, "0")}`);
-    };
-    tick();
-    countdownRef.current = setInterval(tick, 1000);
-    return () => clearInterval(countdownRef.current);
-  }, [nextScan]);
 
   // Restore saved incidents after mount — must use useEffect, not useState initializer,
   // because localStorage is unavailable during Next.js SSR and React reuses server state.
@@ -214,9 +188,6 @@ export default function FireTracker() {
                 <div style={{ fontSize: 9, marginTop: 3, color: "#503020" }}>
                   LAST: {lastScan.toLocaleTimeString()}
                 </div>
-              )}
-              {countdown && status !== "scanning" && (
-                <div style={{ fontSize: 9, color: "#503020" }}>NEXT SCAN: {countdown}</div>
               )}
               <button onClick={scan} disabled={status === "scanning"} style={{
                 marginTop: 6, background: "transparent", border: "1px solid #2a1505",
@@ -332,8 +303,8 @@ export default function FireTracker() {
         borderTop: "1px solid #150f08", padding: "8px 32px", fontSize: 9, color: "#2a1a10",
         display: "flex", justifyContent: "space-between", letterSpacing: "0.1em",
       }}>
-        <span>DATA SOURCED VIA WEB SEARCH · NOT OFFICIAL EMERGENCY SERVICES DATA</span>
-        <span>AUTO-REFRESH EVERY 5 MIN</span>
+        <span>DATA SOURCED VIA GDELT NEWS INDEX · NOT OFFICIAL EMERGENCY SERVICES DATA</span>
+        <span>MANUAL SCAN · CLICK ↺ SCAN NOW TO REFRESH</span>
       </div>
     </div>
   );
