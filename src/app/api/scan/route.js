@@ -18,9 +18,9 @@ export async function POST(request) {
   const trimmed = existingLocations.slice(0, 15);
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
-  const prompt = `You are a fire incident tracker. Search for recent news reports of warehouse fires, manufacturing plant fires, distribution center fires, or industrial facility fires anywhere in the United States from the past 2 weeks.
+  const prompt = `You are a fire incident tracker. Use web search to find recent news reports of warehouse fires, manufacturing plant fires, distribution center fires, commercial building fires, or industrial facility fires anywhere in the United States from the past 2 weeks. Search thoroughly — there are typically many such incidents each week across the country.
 
-  ${existingList}
+  Already tracked locations (exclude these from your response): ${existingList}
 
   Return ONLY new fires not already in the list above. For each fire found, output exactly one line in this format:
   - City/Location, ST | Date (YYYY-MM-DD or approx) | Facility type | Brief source/description
@@ -28,12 +28,15 @@ export async function POST(request) {
   Example:
   - Memphis, TN | 2025-04-10 | Distribution center | Large fire at Amazon warehouse
   - Detroit, MI | 2025-04-09 | Auto parts manufacturer | Fire destroys parts plant
+  - Houston, TX | 2025-04-08 | Commercial building | Fire damages strip mall warehouse
 
   Rules:
-  - Only include real confirmed fire incidents found via web search
+  - Search for real confirmed fire incidents using web search — do not fabricate any
+  - Include warehouse fires, manufacturing plants, distribution centers, commercial buildings, storage facilities
   - Only US locations
   - State must be the 2-letter abbreviation
-  - If no new fires found, output exactly: NO_NEW_FIRES
+  - List every fire you find, do not truncate the list
+  - If no new fires found after searching, output exactly: NO_NEW_FIRES
   - Do not include any other text, preamble, or explanation`;
 
   const attemptFetch = async (attemptsLeft) => {
@@ -47,7 +50,7 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 300,
+        max_tokens: 2048,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages: [{ role: "user", content: prompt }],
       }),

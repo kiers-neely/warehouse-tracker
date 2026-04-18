@@ -349,7 +349,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
     <div style={{ position: "relative", width: "100%", borderRadius: 4, overflow: "hidden" }}>
       {/* Real US map SVG from simplemaps / wikimedia public domain */}
       <img
-        src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Blank_US_Map_%28states_only%29.svg/1280px-Blank_US_Map_%28states_only%29.svg.png"
+        src="/us-map.svg"
         alt="US Map"
         style={{
           width: "100%",
