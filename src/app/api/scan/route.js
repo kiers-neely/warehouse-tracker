@@ -41,9 +41,8 @@ export async function POST(request) {
 
   let articleList = [];
   const results = await Promise.allSettled([
-    gdeltFetch('("building fire" OR "warehouse fire" OR "factory fire" OR "plant fire" OR "office fire") sourcelang:english'),
+    gdeltFetch('("building fire" OR "warehouse fire" OR "factory fire" OR "plant fire" OR "office fire" OR "fire broke out" OR "caught fire") sourcelang:english'),
     gdeltFetch('("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire") sourcelang:english'),
-    gdeltFetch('("fire broke out" OR "caught fire" OR "fire engulfed" OR "fire destroyed" OR "fire gutted") sourcelang:english'),
   ]);
   const seen = new Set();
   for (const result of results) {
