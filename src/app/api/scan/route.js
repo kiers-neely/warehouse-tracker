@@ -27,9 +27,12 @@ export async function POST(request) {
       '"retail store" OR "business park" OR "industrial park" OR hotel OR restaurant OR hospital OR school) ' +
       'sourcelang:english sourcecountry:US'
     );
+    const startDate = "20260407000000";
+    const endDate = new Date().toISOString().slice(0, 10).replace(/-/g, "") + "235959";
     const gdeltUrl =
       `https://api.gdeltproject.org/api/v2/doc/doc?query=${query}` +
-      `&mode=artlist&maxrecords=75&format=json&timespan=2w`;
+      `&mode=artlist&maxrecords=75&format=json` +
+      `&startdatetime=${startDate}&enddatetime=${endDate}`;
 
     const newsRes = await fetch(gdeltUrl, { signal: AbortSignal.timeout(12000) });
     if (newsRes.ok) {
