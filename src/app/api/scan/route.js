@@ -44,21 +44,43 @@ export async function POST(request) {
     return items;
   }
 
-  const rssQuery = encodeURIComponent(
-    '(warehouse OR manufacturing OR "distribution center" OR industrial OR "production facility" OR factory OR retail OR company OR arson) fire after:2026-04-06'
-  );
-  const rssUrl = `https://news.google.com/rss/search?q=${rssQuery}&hl=en-US&gl=US&ceid=US:en`;
-  console.log("[scan] RSS URL:", rssUrl);
+  // Three complementary queries run in parallel — each RSS feed caps at ~100 results,
+  // so parallel fetches with different terms give us a much wider net.
+  const RSS_QUERIES = [
+    'warehouse fire OR "factory fire" OR "distribution center fire" OR "manufacturing plant fire" OR "industrial fire" after:2026-04-06',
+    '"store fire" OR "restaurant fire" OR "hotel fire" OR "shopping center fire" OR "retail fire" OR "office fire" after:2026-04-06',
+    '"plant fire" OR "facility fire" OR "business fire" OR "company fire" OR "commercial fire" OR "arson" after:2026-04-06',
+  ];
 
-  let articleLines = [];
-  try {
-    const res = await fetch(rssUrl, {
+  const fetchRSS = async (query) => {
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+    const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; fire-tracker/1.0)" },
       signal: AbortSignal.timeout(15000),
     });
-    const xml = await res.text();
-    console.log("[scan] RSS snippet:", xml.slice(0, 200));
-    articleLines = parseRSS(xml);
+    return res.text();
+  };
+
+  let articleLines = [];
+  try {
+    const results = await Promise.allSettled(RSS_QUERIES.map(fetchRSS));
+    const seen = new Set();
+    for (const result of results) {
+      if (result.status !== "fulfilled") {
+        console.log("[scan] RSS fetch failed:", result.reason?.message);
+        continue;
+      }
+      const parsed = parseRSS(result.value);
+      for (const line of parsed) {
+        // Deduplicate by normalized title (strip date suffix for comparison)
+        const key = line.replace(/\s*\(\d{4}-\d{2}-\d{2}\)$/, "").toLowerCase().replace(/\s+/g, " ").trim();
+        if (!seen.has(key)) {
+          seen.add(key);
+          articleLines.push(line);
+        }
+      }
+    }
+    console.log("[scan] RSS snippet:", results[0].value?.slice(0, 200));
   } catch (err) {
     console.log("[scan] RSS fetch failed:", err.message);
   }
@@ -100,7 +122,7 @@ Rules:
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2048,
+        max_tokens: 4096,
         messages: [{ role: "user", content: prompt }],
       }),
     });
