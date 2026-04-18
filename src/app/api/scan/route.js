@@ -40,19 +40,21 @@ export async function POST(request) {
   }
 
   let articleList = [];
-  try {
-    const [batch1, batch2] = await Promise.all([
-      gdeltFetch('("building fire" OR "warehouse fire" OR "factory fire" OR "plant fire" OR "office fire")'),
-      gdeltFetch('("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire")'),
-    ]);
-    const seen = new Set();
-    for (const a of [...batch1, ...batch2]) {
-      if (a.url && !seen.has(a.url)) { seen.add(a.url); articleList.push(a); }
+  const results = await Promise.allSettled([
+    gdeltFetch('("building fire" OR "warehouse fire" OR "factory fire" OR "plant fire" OR "office fire") sourcelang:english sourcecountry:US'),
+    gdeltFetch('("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire") sourcelang:english sourcecountry:US'),
+  ]);
+  const seen = new Set();
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const a of result.value) {
+        if (a.url && !seen.has(a.url)) { seen.add(a.url); articleList.push(a); }
+      }
+    } else {
+      console.log("[scan] GDELT batch failed:", result.reason?.message);
     }
-    console.log(`[scan] GDELT total unique articles: ${articleList.length}`);
-  } catch (err) {
-    console.log("[scan] GDELT fetch failed:", err.message);
   }
+  console.log(`[scan] GDELT total unique articles: ${articleList.length}`);
 
   const articles = articleList
     .map((a) => `${a.title} (${a.seendate?.slice(0, 8) ?? "unknown"})`)
