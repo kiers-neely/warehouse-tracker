@@ -1,6 +1,8 @@
 // src/app/api/scan/route.js
 // SERVER-SIDE ONLY — API key never reaches the browser.
 
+export const maxDuration = 60; // seconds — overrides Vercel's default 10s function timeout
+
 export async function POST(request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -40,18 +42,21 @@ export async function POST(request) {
   }
 
   let articleList = [];
-  const results = await Promise.allSettled([
-    gdeltFetch('("building fire" OR "warehouse fire" OR "factory fire" OR near5:"manufacturing fire" OR "office fire") sourcelang:english'),
-    gdeltFetch('(near5:"distribution center fire" OR "restaurant fire" OR "industrial fire" OR "commercial fire") sourcelang:english'),
-  ]);
+  // GDELT requires requests spaced at least 5 seconds apart.
+  const batches = [
+    '("building fire" OR "warehouse fire" OR "factory fire" OR near5:"manufacturing fire" OR "office fire") sourcelang:english'
+    '("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire") sourcelang:english',
+  ];
   const seen = new Set();
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      for (const a of result.value) {
+  for (let i = 0; i < batches.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 5500));
+    try {
+      const articles = await gdeltFetch(batches[i]);
+      for (const a of articles) {
         if (a.url && !seen.has(a.url)) { seen.add(a.url); articleList.push(a); }
       }
-    } else {
-      console.log("[scan] GDELT batch failed:", result.reason?.message);
+    } catch (err) {
+      console.log("[scan] GDELT batch failed:", err.message);
     }
   }
   console.log(`[scan] GDELT total unique articles: ${articleList.length}`);
@@ -61,7 +66,7 @@ export async function POST(request) {
     .join("\n");
 
   if (!articles) {
-    return Response.json({ text: "NO_NEW_FIRES", debug: "GDELT returned 0 articles" });
+    return Response.json({ text: "NO_NEW_FIRES", articleCount: 0 });
   }
 
   // Step 2: Send only the article titles to Claude for structured extraction.
@@ -80,7 +85,8 @@ Included location types: warehouses, factories, distribution centers, office bui
 Excluded: purely residential fires (houses, apartment fires with no commercial component).
 
 Rules:
-- Only US locations; state must be the 2-letter abbreviation
+- ONLY include incidents located in the United States — discard anything from the UK, Canada, Australia, or any other country
+- State must be a valid 2-letter US state abbreviation (e.g. CA, TX, NY) — not a country code
 - If no qualifying fires are found, output exactly: NO_NEW_FIRES
 - No other text, preamble, or explanation`;
 
@@ -117,7 +123,7 @@ Rules:
       .map((b) => b.text)
       .join("\n")
       .trim();
-    return Response.json({ text, stopReason: data.stop_reason });
+    return Response.json({ text, stopReason: data.stop_reason, articleCount: articleList.length });
   };
 
   try {

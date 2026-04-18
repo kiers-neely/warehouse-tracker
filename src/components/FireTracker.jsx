@@ -2,32 +2,34 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
+// [x%, y%] centers derived by parsing actual path bounding boxes from the 959x593 SVG.
 const US_STATES_COORDS = {
-  AL: [32.8, -86.8], AK: [64.2, -153.4], AZ: [34.3, -111.1], AR: [34.8, -92.2],
-  CA: [36.8, -119.4], CO: [39.1, -105.4], CT: [41.6, -72.7], DE: [39.0, -75.5],
-  FL: [27.8, -81.6], GA: [32.2, -83.4], HI: [19.9, -155.6], ID: [44.4, -114.5],
-  IL: [40.0, -89.2], IN: [39.9, -86.3], IA: [42.1, -93.2], KS: [38.5, -96.7],
-  KY: [37.7, -84.9], LA: [31.2, -91.8], ME: [44.7, -69.4], MD: [39.0, -76.8],
-  MA: [42.3, -71.8], MI: [44.3, -85.4], MN: [46.4, -93.1], MS: [32.7, -89.7],
-  MO: [38.4, -92.5], MT: [47.0, -110.5], NE: [41.5, -99.9], NV: [38.4, -117.1],
-  NH: [43.7, -71.6], NJ: [40.1, -74.5], NM: [34.8, -106.2], NY: [42.9, -75.5],
-  NC: [35.5, -79.4], ND: [47.5, -100.5], OH: [40.4, -82.8], OK: [35.6, -97.5],
-  OR: [44.1, -120.5], PA: [40.9, -77.8], RI: [41.7, -71.5], SC: [33.9, -80.9],
-  SD: [44.4, -100.2], TN: [35.9, -86.7], TX: [31.1, -97.6], UT: [39.3, -111.1],
-  VT: [44.0, -72.7], VA: [37.8, -79.5], WA: [47.4, -120.5], WV: [38.6, -80.6],
-  WI: [44.3, -89.8], WY: [42.8, -107.5], DC: [38.9, -77.0],
+  AL: [68.2, 70.1], AK: [12.1, 90.2], AZ: [20.3, 61.7], AR: [57.2, 63.1],
+  CA: [9.5,  46.5], CO: [33.1, 46.0], CT: [89.6, 30.3], DE: [86.3, 40.8],
+  FL: [75.1, 86.2], GA: [74.5, 68.3], HI: [30.9, 92.2], ID: [20.1, 18.8],
+  IL: [61.6, 44.0], IN: [67.2, 43.3], IA: [54.6, 36.3], KS: [45.8, 49.1],
+  KY: [68.8, 50.7], LA: [59.0, 76.9], ME: [93.4, 14.8], MD: [83.0, 42.2],
+  MA: [91.1, 26.7], MI: [64.2, 24.4], MN: [54.2, 19.9], MS: [61.9, 70.7],
+  MO: [56.6, 49.8], MT: [28.5, 14.7], NE: [43.8, 37.7], NV: [13.9, 42.5],
+  NH: [90.4, 20.6], NJ: [87.0, 36.7], NM: [31.0, 63.1], NY: [84.2, 26.4],
+  NC: [80.0, 56.3], ND: [43.2, 15.6], OH: [73.0, 40.0], OK: [45.2, 60.9],
+  OR: [10.1, 20.0], PA: [81.6, 35.7], RI: [91.5, 29.5], SC: [78.4, 64.1],
+  SD: [43.0, 27.6], TN: [68.5, 57.7], TX: [42.2, 76.3], UT: [22.6, 42.1],
+  VT: [88.1, 21.5], VA: [80.0, 47.7], WA: [12.1, 12.0], WV: [78.1, 44.5],
+  WI: [60.2, 25.4], WY: [30.7, 30.5], DC: [83.6, 42.6],
 };
 
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
+
+const US_STATES = new Set(Object.keys(US_STATES_COORDS));
 
 function parseFiresFromText(text) {
   const fires = [];
   const lines = text.split("\n").filter((l) => l.trim());
   for (const line of lines) {
     const match = line.match(/^-?\s*(.+?),\s*([A-Z]{2})\s*\|([^|]+)\|([^|]+)\|(.+)$/);
-    if (match) {
+    if (match && US_STATES.has(match[2].trim())) {
       fires.push({
         id: `${Date.now()}-${Math.random()}`,
         location: match[1].trim(),
@@ -42,11 +44,12 @@ function parseFiresFromText(text) {
   return fires;
 }
 
+// Returns [x%, y%] with slight jitter to separate overlapping dots in the same state.
 function getCoords(state, index) {
   const base = US_STATES_COORDS[state];
   if (!base) return null;
-  const jitter = Math.sin(index * 137.5) * 1.5;
-  const jitter2 = Math.cos(index * 137.5) * 1.5;
+  const jitter  = Math.sin(index * 137.5) * 1.2;
+  const jitter2 = Math.cos(index * 137.5) * 1.2;
   return [base[0] + jitter, base[1] + jitter2];
 }
 
@@ -55,13 +58,9 @@ export default function FireTracker() {
   const [fires, setFires] = useState([]);
   const [status, setStatus] = useState("idle");
   const [lastScan, setLastScan] = useState(null);
-  const [nextScan, setNextScan] = useState(null);
-  const [countdown, setCountdown] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [hoveredFire, setHoveredFire] = useState(null);
   const [highlightedFire, setHighlightedFire] = useState(null);
-  const timerRef = useRef(null);
-  const countdownRef = useRef(null);
   const firesRef = useRef(fires);
   firesRef.current = fires;
 
@@ -78,7 +77,10 @@ export default function FireTracker() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unknown server error");
 
-      const { text } = data;
+      const { text, articleCount } = data;
+      if (articleCount === 0) {
+        setErrorMsg("GDELT returned 0 articles — try again shortly");
+      }
       if (text && text !== "NO_NEW_FIRES") {
         const newFires = parseFiresFromText(text);
         if (newFires.length > 0) {
@@ -92,7 +94,6 @@ export default function FireTracker() {
         }
       }
       setLastScan(new Date());
-      setNextScan(new Date(Date.now() + POLL_INTERVAL_MS));
       setStatus("idle");
     } catch (e) {
       setStatus("error");
@@ -104,26 +105,22 @@ export default function FireTracker() {
     scan();
   }, []); // eslint-disable-line
 
+
+  // Restore saved incidents after mount — must use useEffect, not useState initializer,
+  // because localStorage is unavailable during Next.js SSR and React reuses server state.
   useEffect(() => {
-    if (status === "idle" && nextScan) {
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => scan(), POLL_INTERVAL_MS);
-    }
-    return () => clearTimeout(timerRef.current);
-  }, [status, nextScan, scan]);
+    try {
+      const saved = localStorage.getItem("firetracker-incidents");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) setFires(parsed);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
-    if (!nextScan) return;
-    const tick = () => {
-      const diff = Math.max(0, nextScan - Date.now());
-      const mins = Math.floor(diff / 60000);
-      const secs = Math.floor((diff % 60000) / 1000);
-      setCountdown(`${mins}:${secs.toString().padStart(2, "0")}`);
-    };
-    tick();
-    countdownRef.current = setInterval(tick, 1000);
-    return () => clearInterval(countdownRef.current);
-  }, [nextScan]);
+    try { localStorage.setItem("firetracker-incidents", JSON.stringify(fires)); } catch {}
+  }, [fires]);
 
   const firesWithCoords = fires.map((f, i) => ({
     ...f,
@@ -132,7 +129,8 @@ export default function FireTracker() {
 
   return (
     <div style={{
-      minHeight: "100vh",
+      height: "100vh",
+      overflow: "hidden",
       background: "#0a0a0f",
       color: "#e8e0d5",
       fontFamily: "'DM Mono', 'Courier New', monospace",
@@ -148,9 +146,7 @@ export default function FireTracker() {
         alignItems: "center",
         justifyContent: "space-between",
         background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
+        flexShrink: 0,
         backdropFilter: "blur(8px)",
       }}>
         <div>
@@ -163,12 +159,12 @@ export default function FireTracker() {
           }}>
             🔥 US WAREHOUSE FIRE TRACKER
           </div>
-          <div style={{ fontSize: "10px", color: "#6b5040", letterSpacing: "0.2em", marginTop: 4 }}>
+          <div style={{ fontSize: "10px", color: "#a07868", letterSpacing: "0.2em", marginTop: 4 }}>
             INDUSTRIAL & MANUFACTURING FACILITY INCIDENTS · NATIONWIDE
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 11, color: "#8a6050" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 11, color: "#c09070" }}>
             <div style={{
               background: "#1a0a05", border: "1px solid #2a1505", borderRadius: 4,
               padding: "6px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
@@ -176,7 +172,7 @@ export default function FireTracker() {
               <div style={{ color: "#ff4500", fontFamily: "'Bebas Neue'", fontSize: 28, lineHeight: 1 }}>
                 {fires.length}
               </div>
-              <div style={{ fontSize: 9, letterSpacing: "0.15em", color: "#6b4030" }}>INCIDENTS</div>
+              <div style={{ fontSize: 9, letterSpacing: "0.15em", color: "#aa7050" }}>INCIDENTS</div>
             </div>
             <div style={{ textAlign: "right" }}>
               {status === "scanning" ? (
@@ -186,19 +182,16 @@ export default function FireTracker() {
               ) : status === "error" ? (
                 <div style={{ color: "#ff3333" }}>⚠ SCAN ERROR</div>
               ) : (
-                <div style={{ color: "#4a7a4a" }}>● LIVE</div>
+                <div style={{ color: "#6ab86a" }}>● LIVE</div>
               )}
               {lastScan && (
-                <div style={{ fontSize: 9, marginTop: 3, color: "#503020" }}>
+                <div style={{ fontSize: 9, marginTop: 3, color: "#9a6a45" }}>
                   LAST: {lastScan.toLocaleTimeString()}
                 </div>
               )}
-              {countdown && status !== "scanning" && (
-                <div style={{ fontSize: 9, color: "#503020" }}>NEXT SCAN: {countdown}</div>
-              )}
               <button onClick={scan} disabled={status === "scanning"} style={{
                 marginTop: 6, background: "transparent", border: "1px solid #2a1505",
-                color: status === "scanning" ? "#503020" : "#ff6a00",
+                color: status === "scanning" ? "#7a5535" : "#ff6a00",
                 padding: "3px 10px", fontSize: 9, letterSpacing: "0.1em",
                 cursor: status === "scanning" ? "not-allowed" : "pointer",
                 borderRadius: 2, display: "block", width: "100%",
@@ -219,7 +212,7 @@ export default function FireTracker() {
         </div>
       )}
 
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
         {/* Map */}
         <div style={{
           flex: "0 0 55%", borderRight: "1px solid #1a0f08",
@@ -239,7 +232,7 @@ export default function FireTracker() {
             </div>
           )}
           <div style={{ padding: 16, position: "relative" }}>
-            <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#2a1a10", marginBottom: 8 }}>
+            <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#7a5a48", marginBottom: 8 }}>
               INCIDENT MAP · UNITED STATES
             </div>
             <USMap
@@ -249,40 +242,25 @@ export default function FireTracker() {
               highlightedFire={highlightedFire}
             />
           </div>
-          {hoveredFire && (
-            <div style={{
-              position: "absolute", bottom: 20, left: 20,
-              background: "#0f0805ee", border: "1px solid #3a1a0a",
-              borderLeft: "3px solid #ff4500", padding: "10px 14px",
-              fontSize: 11, maxWidth: 280, backdropFilter: "blur(4px)",
-            }}>
-              <div style={{ color: "#ff4500", fontWeight: 500, marginBottom: 4 }}>
-                {hoveredFire.location}, {hoveredFire.state}
-              </div>
-              <div style={{ color: "#9a7060", marginBottom: 2 }}>{hoveredFire.facility}</div>
-              <div style={{ color: "#6a5040" }}>{hoveredFire.date}</div>
-              <div style={{ color: "#5a4030", marginTop: 4, fontSize: 10, lineHeight: 1.4 }}>{hoveredFire.source}</div>
-            </div>
-          )}
         </div>
 
         {/* Log */}
-        <div style={{ flex: "0 0 45%", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: "0 0 45%", overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{
-            padding: "12px 20px", borderBottom: "1px solid #1a0f08", fontSize: 9,
-            letterSpacing: "0.2em", color: "#2a1a10", position: "sticky", top: 0,
+            padding: "12px 20px", borderBottom: "1px solid #2a1a10", fontSize: 9,
+            letterSpacing: "0.2em", color: "#8a6a55", position: "sticky", top: 0,
             background: "#0a0a0f", zIndex: 5, display: "flex", justifyContent: "space-between",
           }}>
             <span>INCIDENT LOG</span><span>{fires.length} TOTAL</span>
           </div>
 
           {fires.length === 0 && status === "idle" && (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "#3a2a20", fontSize: 12 }}>
+            <div style={{ padding: "40px 20px", textAlign: "center", color: "#8a6a55", fontSize: 12 }}>
               No incidents found yet.
             </div>
           )}
           {fires.length === 0 && status === "scanning" && (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "#6a4020", fontSize: 12 }}>
+            <div style={{ padding: "40px 20px", textAlign: "center", color: "#c07840", fontSize: 12 }}>
               <div className="spin-icon" style={{ fontSize: 24, display: "block", marginBottom: 12 }}>◌</div>
               Searching news for warehouse fire reports...
             </div>
@@ -294,7 +272,7 @@ export default function FireTracker() {
               className={`fire-row${fire.isNew ? " fire-row-new" : ""}`}
               style={{
                 padding: "12px 20px", borderBottom: "1px solid #120d09",
-                borderLeft: fire.isNew ? "2px solid #ff4500" : "2px solid transparent",
+                borderLeft: fire.isNew ? "2px solid #ff4500" : "2px solid #1e1410",
                 transition: "background 0.2s",
                 background: highlightedFire?.id === fire.id ? "rgba(255,69,0,0.06)" : "transparent",
               }}
@@ -312,42 +290,31 @@ export default function FireTracker() {
                     {fire.location}, {fire.state}
                   </span>
                 </div>
-                <span style={{ fontSize: 10, color: "#4a3020", flexShrink: 0, marginLeft: 8 }}>{fire.date}</span>
+                <span style={{ fontSize: 10, color: "#9a7050", flexShrink: 0, marginLeft: 8 }}>{fire.date}</span>
               </div>
-              <div style={{ fontSize: 11, color: "#7a5a40", marginLeft: 16, marginBottom: 2 }}>{fire.facility}</div>
-              <div style={{ fontSize: 10, color: "#4a3020", marginLeft: 16, lineHeight: 1.4 }}>{fire.source}</div>
+              <div style={{ fontSize: 11, color: "#b08060", marginLeft: 16, marginBottom: 2 }}>{fire.facility}</div>
+              <div style={{ fontSize: 10, color: "#8a6848", marginLeft: 16, lineHeight: 1.4 }}>{fire.source}</div>
             </div>
           ))}
         </div>
       </div>
 
       <div style={{
-        borderTop: "1px solid #150f08", padding: "8px 32px", fontSize: 9, color: "#2a1a10",
+        borderTop: "1px solid #2a1a10", padding: "8px 32px", fontSize: 9, color: "#7a5a48",
         display: "flex", justifyContent: "space-between", letterSpacing: "0.1em",
       }}>
-        <span>DATA SOURCED VIA WEB SEARCH · NOT OFFICIAL EMERGENCY SERVICES DATA</span>
-        <span>AUTO-REFRESH EVERY 5 MIN</span>
+        <span>DATA SOURCED VIA GDELT NEWS INDEX · NOT OFFICIAL EMERGENCY SERVICES DATA</span>
+        <span>MANUAL SCAN · CLICK ↺ SCAN NOW TO REFRESH</span>
       </div>
     </div>
   );
 }
 
-// Convert lat/lng to percentage position over the continental US map image
-// Map image bounds (Albers projection approximation):
-//   lng: -125 (left) to -66 (right)
-//   lat: 50 (top) to 24 (bottom)
-function latLngToPercent(lat, lng) {
-  const lngMin = -125, lngMax = -66;
-  const latMin = 24,  latMax = 50;
-  const x = ((lng - lngMin) / (lngMax - lngMin)) * 100;
-  const y = ((latMax - lat) / (latMax - latMin)) * 100;
-  return [x, y];
-}
 
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
   return (
     <div style={{
-      position: "relative", width: "100%", borderRadius: 4, overflow: "hidden",
+      position: "relative", width: "100%", borderRadius: 4,
       background: "radial-gradient(ellipse 80% 60% at 50% 55%, #1a0e05 0%, #0a0800 60%, transparent 100%)",
       boxShadow: "inset 0 0 60px 10px #0a0800",
     }}>
@@ -367,13 +334,14 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
       {/* Fire dots overlaid as absolutely positioned elements */}
       {fires.map((fire, i) => {
         if (!fire.coords || fire.state === "AK" || fire.state === "HI") return null;
-        const [lat, lng] = fire.coords;
-        const [px, py] = latLngToPercent(lat, lng);
+        const [px, py] = fire.coords;
         if (px < 0 || px > 100 || py < 0 || py > 100) return null;
         const isHighlighted = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
         const color = FIRE_COLORS[i % FIRE_COLORS.length];
         const size = isHighlighted ? 16 : 10;
 
+        const flipLeft = px > 65;
+        const flipDown = py < 18;
         return (
           <div
             key={fire.id}
@@ -407,6 +375,30 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
               borderRadius: "50%",
               background: "rgba(255,255,255,0.7)",
             }} />
+            {/* Floating tooltip */}
+            {isHighlighted && (
+              <div style={{
+                position: "absolute",
+                left: flipLeft ? "auto" : "calc(50% + 10px)",
+                right: flipLeft ? "calc(50% + 10px)" : "auto",
+                top: flipDown ? "calc(100% + 8px)" : "auto",
+                bottom: flipDown ? "auto" : "calc(100% + 8px)",
+                transform: "none",
+                background: "#0f0805f0",
+                border: "1px solid #3a1a0a",
+                borderLeft: "2px solid #ff4500",
+                padding: "6px 10px",
+                borderRadius: 3,
+                fontSize: 10,
+                whiteSpace: "nowrap",
+                pointerEvents: "none",
+                zIndex: 30,
+                backdropFilter: "blur(4px)",
+              }}>
+                <div style={{ color: "#ff6a00", fontWeight: 500 }}>{fire.location}, {fire.state}</div>
+                <div style={{ color: "#9a7060", marginTop: 2 }}>{fire.facility}</div>
+              </div>
+            )}
           </div>
         );
       })}
