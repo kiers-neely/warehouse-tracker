@@ -1,4 +1,4 @@
-# US Warehouse Fire Tracker
+# 🔥 US Warehouse Fire Tracker
 
 A live map of warehouse, manufacturing, and industrial facility fires reported across the United States. Updated on demand using AI-filtered news headlines.
 
