@@ -28,8 +28,8 @@ export async function POST(request) {
   const timespan = `${daysBack}d`;
 
   const query =
-    '(("building fire" OR "warehouse fire" OR "factory fire" OR "plant fire" OR "office fire" OR "fire broke out" OR "caught fire") ' +
-    'OR ("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire")) ' +
+    '(("warehouse fire" OR "factory fire" OR "plant fire" OR "office fire" OR "industrial fire" OR "commercial fire") ' +
+    'OR ("store fire" OR "hotel fire" OR "restaurant fire" OR "distribution center fire" OR "manufacturing fire")) ' +
     'sourcelang:english';
   const gdeltUrl =
     `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}` +
@@ -69,8 +69,8 @@ Already tracked locations (exclude these): ${existingList}
 For each qualifying fire, output exactly one line:
 - City/Location, ST | Date (YYYY-MM-DD) | Facility type | Brief description
 
-Included location types: warehouses, factories, distribution centers, office buildings, corporate campuses, retail stores, shopping centers, restaurants, hotels, hospitals, schools, government buildings, data centers, or any other commercial/business property.
-Excluded: purely residential fires (houses, apartment fires with no commercial component).
+Included location types: warehouses, factories, distribution centers, manufacturing plants, office buildings, corporate campuses, retail stores, shopping centers, restaurants, hotels, data centers, or any other for-profit business property.
+Excluded: hospitals, schools, universities, government buildings, churches, non-profit organizations, and purely residential fires.
 
 Rules:
 - ONLY include incidents located in the United States — discard anything from the UK, Canada, Australia, or any other country
