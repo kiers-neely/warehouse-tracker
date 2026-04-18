@@ -45,7 +45,7 @@ export async function POST(request) {
   }
 
   const rssQuery = encodeURIComponent(
-    '(warehouse OR "manufacturing facility" OR "distribution center" OR industrial OR "storage facility" OR restaurant OR retail) fire after:2026-04-06'
+    '(warehouse OR "manufacturing facility" OR "distribution center" OR industrial OR "storage facility" OR factory OR retail OR business) fire after:2026-04-06'
   );
   const rssUrl = `https://news.google.com/rss/search?q=${rssQuery}&hl=en-US&gl=US&ceid=US:en`;
   console.log("[scan] RSS URL:", rssUrl);
