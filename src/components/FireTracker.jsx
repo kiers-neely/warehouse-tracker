@@ -4,22 +4,21 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
-// Pixel-percentage centers calibrated to the 959x593 Albers Equal Area SVG.
-// Stored as [x%, y%] so no projection conversion is needed.
+// [x%, y%] centers derived by parsing actual path bounding boxes from the 959x593 SVG.
 const US_STATES_COORDS = {
-  AL: [62.0, 74.0], AK: [14.0, 88.0], AZ: [22.4, 65.0], AR: [55.0, 67.5],
-  CA: [12.0, 52.0], CO: [33.5, 51.5], CT: [84.5, 31.5], DE: [83.0, 40.5],
-  FL: [68.5, 83.5], GA: [67.0, 73.5], HI: [27.0, 91.0], ID: [21.5, 30.5],
-  IL: [59.5, 50.0], IN: [63.0, 47.0], IA: [53.5, 42.5], KS: [44.5, 55.5],
-  KY: [65.5, 55.0], LA: [55.5, 78.5], ME: [88.0, 19.5], MD: [80.5, 43.5],
-  MA: [85.5, 28.0], MI: [63.5, 34.5], MN: [51.5, 27.5], MS: [59.0, 75.5],
-  MO: [55.5, 57.0], MT: [27.5, 23.5], NE: [43.0, 45.5], NV: [17.5, 49.0],
-  NH: [85.0, 24.5], NJ: [82.5, 36.5], NM: [31.0, 66.5], NY: [79.0, 30.0],
-  NC: [74.5, 59.5], ND: [43.5, 24.0], OH: [69.0, 43.5], OK: [45.0, 65.5],
-  OR: [14.5, 32.5], PA: [77.5, 37.5], RI: [86.0, 30.5], SC: [72.0, 65.5],
-  SD: [43.0, 36.0], TN: [63.5, 62.5], TX: [45.5, 73.0], UT: [25.5, 51.0],
-  VT: [83.5, 24.0], VA: [76.5, 51.0], WA: [14.5, 20.0], WV: [73.0, 48.5],
-  WI: [58.0, 33.5], WY: [31.0, 37.5], DC: [80.5, 44.5],
+  AL: [68.2, 70.1], AK: [12.1, 90.2], AZ: [20.3, 61.7], AR: [57.2, 63.1],
+  CA: [9.5,  46.5], CO: [33.1, 46.0], CT: [89.6, 30.3], DE: [86.3, 40.8],
+  FL: [75.1, 86.2], GA: [74.5, 68.3], HI: [30.9, 92.2], ID: [20.1, 18.8],
+  IL: [61.6, 44.0], IN: [67.2, 43.3], IA: [54.6, 36.3], KS: [45.8, 49.1],
+  KY: [68.8, 50.7], LA: [59.0, 76.9], ME: [93.4, 14.8], MD: [83.0, 42.2],
+  MA: [91.1, 26.7], MI: [64.2, 24.4], MN: [54.2, 19.9], MS: [61.9, 70.7],
+  MO: [56.6, 49.8], MT: [28.5, 14.7], NE: [43.8, 37.7], NV: [13.9, 42.5],
+  NH: [90.4, 20.6], NJ: [87.0, 36.7], NM: [31.0, 63.1], NY: [84.2, 26.4],
+  NC: [80.0, 56.3], ND: [43.2, 15.6], OH: [73.0, 40.0], OK: [45.2, 60.9],
+  OR: [10.1, 20.0], PA: [81.6, 35.7], RI: [91.5, 29.5], SC: [78.4, 64.1],
+  SD: [43.0, 27.6], TN: [68.5, 57.7], TX: [42.2, 76.3], UT: [22.6, 42.1],
+  VT: [88.1, 21.5], VA: [80.0, 47.7], WA: [12.1, 12.0], WV: [78.1, 44.5],
+  WI: [60.2, 25.4], WY: [30.7, 30.5], DC: [83.6, 42.6],
 };
 
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
@@ -135,7 +134,8 @@ export default function FireTracker() {
 
   return (
     <div style={{
-      minHeight: "100vh",
+      height: "100vh",
+      overflow: "hidden",
       background: "#0a0a0f",
       color: "#e8e0d5",
       fontFamily: "'DM Mono', 'Courier New', monospace",
@@ -151,9 +151,7 @@ export default function FireTracker() {
         alignItems: "center",
         justifyContent: "space-between",
         background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
+        flexShrink: 0,
         backdropFilter: "blur(8px)",
       }}>
         <div>
@@ -222,7 +220,7 @@ export default function FireTracker() {
         </div>
       )}
 
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
         {/* Map */}
         <div style={{
           flex: "0 0 55%", borderRight: "1px solid #1a0f08",
@@ -252,25 +250,10 @@ export default function FireTracker() {
               highlightedFire={highlightedFire}
             />
           </div>
-          {hoveredFire && (
-            <div style={{
-              position: "absolute", bottom: 20, left: 20,
-              background: "#0f0805ee", border: "1px solid #3a1a0a",
-              borderLeft: "3px solid #ff4500", padding: "10px 14px",
-              fontSize: 11, maxWidth: 280, backdropFilter: "blur(4px)",
-            }}>
-              <div style={{ color: "#ff4500", fontWeight: 500, marginBottom: 4 }}>
-                {hoveredFire.location}, {hoveredFire.state}
-              </div>
-              <div style={{ color: "#9a7060", marginBottom: 2 }}>{hoveredFire.facility}</div>
-              <div style={{ color: "#6a5040" }}>{hoveredFire.date}</div>
-              <div style={{ color: "#5a4030", marginTop: 4, fontSize: 10, lineHeight: 1.4 }}>{hoveredFire.source}</div>
-            </div>
-          )}
         </div>
 
         {/* Log */}
-        <div style={{ flex: "0 0 45%", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: "0 0 45%", overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{
             padding: "12px 20px", borderBottom: "1px solid #1a0f08", fontSize: 9,
             letterSpacing: "0.2em", color: "#2a1a10", position: "sticky", top: 0,
@@ -339,7 +322,7 @@ export default function FireTracker() {
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
   return (
     <div style={{
-      position: "relative", width: "100%", borderRadius: 4, overflow: "hidden",
+      position: "relative", width: "100%", borderRadius: 4,
       background: "radial-gradient(ellipse 80% 60% at 50% 55%, #1a0e05 0%, #0a0800 60%, transparent 100%)",
       boxShadow: "inset 0 0 60px 10px #0a0800",
     }}>
@@ -365,6 +348,8 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
         const color = FIRE_COLORS[i % FIRE_COLORS.length];
         const size = isHighlighted ? 16 : 10;
 
+        const flipLeft = px > 65;
+        const flipDown = py < 18;
         return (
           <div
             key={fire.id}
@@ -398,6 +383,30 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
               borderRadius: "50%",
               background: "rgba(255,255,255,0.7)",
             }} />
+            {/* Floating tooltip */}
+            {isHighlighted && (
+              <div style={{
+                position: "absolute",
+                left: flipLeft ? "auto" : "calc(50% + 10px)",
+                right: flipLeft ? "calc(50% + 10px)" : "auto",
+                top: flipDown ? "calc(100% + 8px)" : "auto",
+                bottom: flipDown ? "auto" : "calc(100% + 8px)",
+                transform: "none",
+                background: "#0f0805f0",
+                border: "1px solid #3a1a0a",
+                borderLeft: "2px solid #ff4500",
+                padding: "6px 10px",
+                borderRadius: 3,
+                fontSize: 10,
+                whiteSpace: "nowrap",
+                pointerEvents: "none",
+                zIndex: 30,
+                backdropFilter: "blur(4px)",
+              }}>
+                <div style={{ color: "#ff6a00", fontWeight: 500 }}>{fire.location}, {fire.state}</div>
+                <div style={{ color: "#9a7060", marginTop: 2 }}>{fire.facility}</div>
+              </div>
+            )}
           </div>
         );
       })}
