@@ -40,18 +40,21 @@ export async function POST(request) {
   }
 
   let articleList = [];
-  const results = await Promise.allSettled([
-    gdeltFetch('("building fire" OR "warehouse fire" OR "factory fire" OR "plant fire" OR "office fire" OR "fire broke out" OR "caught fire") sourcelang:english'),
-    gdeltFetch('("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire") sourcelang:english'),
-  ]);
+  // GDELT requires requests spaced at least 5 seconds apart.
+  const batches = [
+    '("building fire" OR "warehouse fire" OR "factory fire" OR "plant fire" OR "office fire" OR "fire broke out" OR "caught fire") sourcelang:english',
+    '("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire") sourcelang:english',
+  ];
   const seen = new Set();
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      for (const a of result.value) {
+  for (let i = 0; i < batches.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 5500));
+    try {
+      const articles = await gdeltFetch(batches[i]);
+      for (const a of articles) {
         if (a.url && !seen.has(a.url)) { seen.add(a.url); articleList.push(a); }
       }
-    } else {
-      console.log("[scan] GDELT batch failed:", result.reason?.message);
+    } catch (err) {
+      console.log("[scan] GDELT batch failed:", err.message);
     }
   }
   console.log(`[scan] GDELT total unique articles: ${articleList.length}`);
