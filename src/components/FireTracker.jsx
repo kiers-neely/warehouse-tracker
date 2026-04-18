@@ -28,6 +28,7 @@ function parseFiresFromText(text) {
   const fires = [];
   const lines = text.split("\n").filter((l) => l.trim());
   for (const line of lines) {
+    if (/excluded/i.test(line)) continue;
     const match = line.match(/^-?\s*(.+?),\s*([A-Z]{2})\s*\|([^|]+)\|([^|]+)\|(.+)$/);
     if (match && US_STATES.has(match[2].trim())) {
       fires.push({

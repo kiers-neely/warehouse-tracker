@@ -86,8 +86,9 @@ Excluded: hospitals, schools, universities, government buildings, churches, non-
 Rules:
 - ONLY include incidents located in the United States — discard anything from the UK, Canada, Australia, or any other country
 - State must be a valid 2-letter US state abbreviation (e.g. CA, TX, NY) — not a country code
+- Do NOT output excluded incidents in any form — simply omit them entirely
 - If no qualifying fires are found, output exactly: NO_NEW_FIRES
-- No other text, preamble, or explanation`;
+- No other text, preamble, explanation, or annotations`;
 
   const attemptFetch = async (attemptsLeft) => {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
