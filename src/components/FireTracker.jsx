@@ -54,12 +54,7 @@ function getCoords(state, index) {
 
 
 export default function FireTracker() {
-  const [fires, setFires] = useState(() => {
-    try {
-      const saved = localStorage.getItem("firetracker-incidents");
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  const [fires, setFires] = useState([]);
   const [status, setStatus] = useState("idle");
   const [lastScan, setLastScan] = useState(null);
   const [nextScan, setNextScan] = useState(null);
@@ -85,7 +80,10 @@ export default function FireTracker() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unknown server error");
 
-      const { text } = data;
+      const { text, articleCount } = data;
+      if (articleCount === 0) {
+        setErrorMsg("GDELT returned 0 articles — try again shortly");
+      }
       if (text && text !== "NO_NEW_FIRES") {
         const newFires = parseFiresFromText(text);
         if (newFires.length > 0) {
@@ -131,6 +129,18 @@ export default function FireTracker() {
     countdownRef.current = setInterval(tick, 1000);
     return () => clearInterval(countdownRef.current);
   }, [nextScan]);
+
+  // Restore saved incidents after mount — must use useEffect, not useState initializer,
+  // because localStorage is unavailable during Next.js SSR and React reuses server state.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("firetracker-incidents");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) setFires(parsed);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem("firetracker-incidents", JSON.stringify(fires)); } catch {}

@@ -61,7 +61,7 @@ export async function POST(request) {
     .join("\n");
 
   if (!articles) {
-    return Response.json({ text: "NO_NEW_FIRES", debug: "GDELT returned 0 articles" });
+    return Response.json({ text: "NO_NEW_FIRES", articleCount: 0 });
   }
 
   // Step 2: Send only the article titles to Claude for structured extraction.
@@ -117,7 +117,7 @@ Rules:
       .map((b) => b.text)
       .join("\n")
       .trim();
-    return Response.json({ text, stopReason: data.stop_reason });
+    return Response.json({ text, stopReason: data.stop_reason, articleCount: articleList.length });
   };
 
   try {
