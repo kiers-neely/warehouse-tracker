@@ -172,7 +172,7 @@ export default function FireTracker() {
             🔥 US WAREHOUSE FIRE TRACKER
           </div>
           <div style={{ fontSize: "10px", color: "#a07868", letterSpacing: "0.2em", marginTop: 4 }}>
-            INDUSTRIAL & MANUFACTURING FACILITY INCIDENTS · NATIONWIDE
+            WAREHOUSE, FACTORY & INDUSTRIAL FACILITY INCIDENTS · NATIONWIDE
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: isMobile ? "flex-start" : "flex-end", gap: 6, width: isMobile ? "100%" : "auto" }}>

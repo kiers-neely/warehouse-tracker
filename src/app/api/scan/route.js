@@ -47,9 +47,9 @@ export async function POST(request) {
   // Three complementary queries run in parallel — each RSS feed caps at ~100 results,
   // so parallel fetches with different terms give us a much wider net.
   const RSS_QUERIES = [
-    'warehouse fire OR "factory fire" OR "distribution center fire" OR "manufacturing plant fire" OR "industrial fire" after:2026-04-06',
-    '"store fire" OR "restaurant fire" OR "hotel fire" OR "shopping center fire" OR "retail fire" OR "office fire" after:2026-04-06',
-    '"plant fire" OR "facility fire" OR "business fire" OR "company fire" OR "commercial fire" OR "arson" after:2026-04-06',
+    '"warehouse fire" OR "factory fire" OR "distribution center fire" OR "manufacturing plant fire" after:2026-04-06',
+    '"industrial fire" OR "plant fire" OR "fulfillment center fire" OR "logistics center fire" OR "storage facility fire" after:2026-04-06',
+    '"corporate campus fire" OR "office building fire" OR "data center fire" OR "arson" warehouse OR "arson" factory after:2026-04-06',
   ];
 
   const fetchRSS = async (query) => {
@@ -92,7 +92,7 @@ export async function POST(request) {
     return Response.json({ text: "NO_NEW_FIRES", articleCount: 0 });
   }
 
-  const prompt = `You are a fire incident data extractor. Below are recent news article headlines. Extract every fire that occurred at a for-profit commercial or business location in the United States.
+  const prompt = `You are a fire incident data extractor. Below are recent news article headlines. Extract every fire that occurred at a large commercial or industrial facility in the United States where corporate property or inventory was at risk.
 
 Headlines:
 ${articles}
@@ -102,8 +102,8 @@ Already tracked locations (exclude these): ${existingList}
 For each qualifying fire, output exactly one line:
 - City/Location, ST | Date (YYYY-MM-DD) | Facility type | Brief description
 
-Included location types: warehouses, factories, distribution centers, manufacturing plants, office buildings, corporate campuses, retail stores, shopping centers, restaurants, hotels, data centers, or any other for-profit business property.
-Excluded: hospitals, schools, universities, government buildings, churches, non-profit organizations, and purely residential fires.
+Included facility types: warehouses, factories, distribution centers, fulfillment centers, logistics centers, manufacturing plants, industrial facilities, storage facilities, corporate campuses, office buildings, and data centers.
+Excluded: restaurants, cafes, bars, hotels, motels, retail stores, shopping centers, strip malls, hospitals, schools, universities, government buildings, churches, non-profit organizations, and residential fires.
 
 Rules:
 - ONLY include incidents located in the United States — discard anything from the UK, Canada, Australia, or any other country
