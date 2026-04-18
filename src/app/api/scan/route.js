@@ -19,37 +19,47 @@ export async function POST(request) {
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
   // Step 1: Fetch recent fire headlines from GDELT (free, no API key, no token cost)
-  let articles = "";
-  try {
-    const query = encodeURIComponent(
-      'fire (warehouse OR factory OR "office building" OR "commercial building" OR ' +
-      '"distribution center" OR "manufacturing plant" OR "shopping center" OR ' +
-      '"retail store" OR "business park" OR "industrial park" OR hotel OR restaurant OR hospital OR school) ' +
-      'sourcelang:english sourcecountry:US'
-    );
-    const startDate = "20260407000000";
-    const endDate = new Date().toISOString().slice(0, 10).replace(/-/g, "") + "235959";
-    const gdeltUrl =
-      `https://api.gdeltproject.org/api/v2/doc/doc?query=${query}` +
-      `&mode=artlist&maxrecords=75&format=json` +
-      `&startdatetime=${startDate}&enddatetime=${endDate}`;
+  // Step 1: Fetch headlines from GDELT.
+  // Use timespan (known to work) calculated dynamically from the fixed start date.
+  // startdatetime/enddatetime caused GDELT to return a query-error plain-text response.
+  const startMs = new Date("2026-04-07T00:00:00Z").getTime();
+  const daysBack = Math.max(1, Math.ceil((Date.now() - startMs) / 86400000));
+  const timespan = `${daysBack}d`;
 
-    const newsRes = await fetch(gdeltUrl, { signal: AbortSignal.timeout(12000) });
-    if (newsRes.ok) {
-      const newsData = await newsRes.json();
-      articles = (newsData.articles ?? [])
-        .map((a) => `${a.title} (${a.seendate?.slice(0, 8) ?? "unknown"})`)
-        .join("\n");
-      console.log(`[scan] GDELT returned ${newsData.articles?.length ?? 0} articles`);
-    } else {
-      console.log("[scan] GDELT responded with status", newsRes.status);
+  async function gdeltFetch(q) {
+    const url =
+      `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}` +
+      `&mode=artlist&maxrecords=50&format=json&timespan=${timespan}`;
+    console.log("[scan] GDELT URL:", url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    const raw = await res.text();
+    console.log("[scan] GDELT raw snippet:", raw.slice(0, 200));
+    let data;
+    try { data = JSON.parse(raw); } catch { return []; }
+    return data.articles ?? [];
+  }
+
+  let articleList = [];
+  try {
+    const [batch1, batch2] = await Promise.all([
+      gdeltFetch('"building fire" United States'),
+      gdeltFetch('"warehouse fire" OR "factory fire" OR "plant fire" United States'),
+    ]);
+    const seen = new Set();
+    for (const a of [...batch1, ...batch2]) {
+      if (a.url && !seen.has(a.url)) { seen.add(a.url); articleList.push(a); }
     }
+    console.log(`[scan] GDELT total unique articles: ${articleList.length}`);
   } catch (err) {
     console.log("[scan] GDELT fetch failed:", err.message);
   }
 
+  const articles = articleList
+    .map((a) => `${a.title} (${a.seendate?.slice(0, 8) ?? "unknown"})`)
+    .join("\n");
+
   if (!articles) {
-    return Response.json({ text: "NO_NEW_FIRES" });
+    return Response.json({ text: "NO_NEW_FIRES", debug: "GDELT returned 0 articles" });
   }
 
   // Step 2: Send only the article titles to Claude for structured extraction.
