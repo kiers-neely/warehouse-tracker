@@ -68,9 +68,21 @@ export async function POST(request) {
     }
 
     const data = await res.json();
-    const textBlock = data.content?.find((b) => b.type === "text");
-    const text = textBlock?.text?.trim() ?? "";
-    return Response.json({ text });
+    // Log full content array so we can diagnose parsing issues in Vercel function logs
+    console.log("[scan] stop_reason:", data.stop_reason);
+    console.log("[scan] content blocks:", JSON.stringify(data.content?.map(b => ({
+      type: b.type,
+      text: b.type === "text" ? b.text?.slice(0, 300) : undefined,
+      name: b.name,
+    }))));
+    // Concatenate ALL text blocks — the model may emit a preamble before tool_use,
+    // then the actual fire list in a second text block after the search results.
+    const text = (data.content ?? [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
+    return Response.json({ text, stopReason: data.stop_reason });
   };
 
   try {

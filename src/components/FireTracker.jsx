@@ -79,7 +79,7 @@ export default function FireTracker() {
       if (!res.ok) throw new Error(data.error || "Unknown server error");
 
       const { text } = data;
-      if (text && text !== "NO_NEW_FIRES" && !text.includes("NO_NEW_FIRES")) {
+      if (text && text !== "NO_NEW_FIRES") {
         const newFires = parseFiresFromText(text);
         if (newFires.length > 0) {
           setFires((prev) => {
