@@ -346,7 +346,11 @@ function latLngToPercent(lat, lng) {
 
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
   return (
-    <div style={{ position: "relative", width: "100%", borderRadius: 4, overflow: "hidden" }}>
+    <div style={{
+      position: "relative", width: "100%", borderRadius: 4, overflow: "hidden",
+      background: "radial-gradient(ellipse 80% 60% at 50% 55%, #1a0e05 0%, #0a0800 60%, transparent 100%)",
+      boxShadow: "inset 0 0 60px 10px #0a0800",
+    }}>
       {/* Real US map SVG from simplemaps / wikimedia public domain */}
       <img
         src="/us-map.svg"
@@ -354,8 +358,9 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
         style={{
           width: "100%",
           display: "block",
-          filter: "invert(1) sepia(1) saturate(0.3) hue-rotate(180deg) brightness(0.25)",
+          filter: "invert(1) sepia(1) saturate(0.3) hue-rotate(180deg) brightness(0.35)",
           borderRadius: 4,
+          mixBlendMode: "screen",
         }}
       />
 

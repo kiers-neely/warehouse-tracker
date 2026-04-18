@@ -18,7 +18,16 @@ export async function POST(request) {
   const trimmed = existingLocations.slice(0, 15);
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
-  const prompt = `You are a fire incident tracker. Use web search to find recent news reports of warehouse fires, manufacturing plant fires, distribution center fires, commercial building fires, or industrial facility fires anywhere in the United States from the past 2 weeks. Search thoroughly — there are typically many such incidents each week across the country.
+  const prompt = `You are a fire incident tracker. Use web search to find recent news reports of fires at any commercial or business location anywhere in the United States from the past 2 weeks. Cast a wide net and run multiple searches.
+
+  Included location types (any of these count):
+  - Warehouses, distribution centers, fulfillment centers, storage facilities
+  - Manufacturing plants, factories, industrial facilities
+  - Office buildings, corporate campuses, business parks
+  - Retail stores, shopping centers, strip malls
+  - Restaurants, hotels, apartment complexes with commercial use
+  - Schools, hospitals, government buildings, data centers
+  - Any other building associated with a business or organization
 
   Already tracked locations (exclude these from your response): ${existingList}
 
@@ -28,14 +37,12 @@ export async function POST(request) {
   Example:
   - Memphis, TN | 2025-04-10 | Distribution center | Large fire at Amazon warehouse
   - Detroit, MI | 2025-04-09 | Auto parts manufacturer | Fire destroys parts plant
-  - Houston, TX | 2025-04-08 | Commercial building | Fire damages strip mall warehouse
+  - Austin, TX | 2025-04-08 | Office building | Fire on third floor of tech company HQ
 
   Rules:
-  - Search for real confirmed fire incidents using web search — do not fabricate any
-  - Include warehouse fires, manufacturing plants, distribution centers, commercial buildings, storage facilities
-  - Only US locations
-  - State must be the 2-letter abbreviation
-  - List every fire you find, do not truncate the list
+  - Search for real confirmed fire incidents using web search - do not fabricate any
+  - Only US locations; state must be the 2-letter abbreviation
+  - List every fire you find across all searches - do not truncate the list
   - If no new fires found after searching, output exactly: NO_NEW_FIRES
   - Do not include any other text, preamble, or explanation`;
 
