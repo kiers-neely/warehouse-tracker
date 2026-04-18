@@ -1,7 +1,7 @@
 // src/app/api/scan/route.js
 // SERVER-SIDE ONLY — API key never reaches the browser.
 
-export const maxDuration = 60; // seconds — overrides Vercel's default 10s function timeout
+export const maxDuration = 60;
 
 export async function POST(request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -20,58 +20,55 @@ export async function POST(request) {
   const trimmed = existingLocations.slice(0, 15);
   const existingList = trimmed.length > 0 ? trimmed.join("; ") : "none";
 
-  // Step 1: Fetch recent fire headlines from GDELT (free, no API key, no token cost)
-  // Step 1: Fetch headlines from GDELT.
-  // Use timespan (known to work) calculated dynamically from the fixed start date.
-  // startdatetime/enddatetime caused GDELT to return a query-error plain-text response.
-  const startMs = new Date("2026-04-07T00:00:00Z").getTime();
-  const daysBack = Math.max(1, Math.ceil((Date.now() - startMs) / 86400000));
-  const timespan = `${daysBack}d`;
-
-  async function gdeltFetch(q) {
-    const url =
-      `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}` +
-      `&mode=artlist&maxrecords=50&format=json&timespan=${timespan}`;
-    console.log("[scan] GDELT URL:", url);
-    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
-    const raw = await res.text();
-    console.log("[scan] GDELT raw snippet:", raw.slice(0, 200));
-    let data;
-    try { data = JSON.parse(raw); } catch { return []; }
-    return data.articles ?? [];
-  }
-
-  let articleList = [];
-  // GDELT requires requests spaced at least 5 seconds apart.
-  const batches = [
-    '("building fire" OR "warehouse fire" OR "factory fire" OR near20:"manufacturing fire" OR "office fire") sourcelang:english',
-    '("store fire" OR near20:"distribution fire" OR "facility fire" OR near20:"company fire" OR "industrial fire" OR "commercial fire") sourcelang:english',
-  ];
-  const seen = new Set();
-  for (let i = 0; i < batches.length; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, 5500));
-    try {
-      const articles = await gdeltFetch(batches[i]);
-      for (const a of articles) {
-        if (a.url && !seen.has(a.url)) { seen.add(a.url); articleList.push(a); }
+  // Step 1: Fetch headlines from Google News RSS — no API key, no rate limits.
+  // Switched from GDELT which enforces a strict 1-request-per-5s limit that
+  // proved unreliable across Vercel's serverless instances.
+  function parseRSS(xml) {
+    const items = [];
+    const itemRe = /<item>([\s\S]*?)<\/item>/g;
+    let m;
+    while ((m = itemRe.exec(xml)) !== null) {
+      const block = m[1];
+      const title = (block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/) ?? [])[1]?.trim();
+      const pubDate = (block.match(/<pubDate>(.*?)<\/pubDate>/) ?? [])[1]?.trim();
+      if (title && !title.toLowerCase().includes("google news")) {
+        // Convert pubDate to YYYY-MM-DD
+        const d = pubDate ? new Date(pubDate) : null;
+        const dateStr = d && !isNaN(d) ? d.toISOString().slice(0, 10) : "unknown";
+        items.push(`${title} (${dateStr})`);
       }
-    } catch (err) {
-      console.log("[scan] GDELT batch failed:", err.message);
     }
+    return items;
   }
-  console.log(`[scan] GDELT total unique articles: ${articleList.length}`);
 
-  const articles = articleList
-    .map((a) => `${a.title} (${a.seendate?.slice(0, 8) ?? "unknown"})`)
-    .join("\n");
+  const rssQuery = encodeURIComponent(
+    'warehouse fire OR factory fire OR "office building fire" OR "plant fire" OR ' +
+    '"store fire" OR "hotel fire" OR "restaurant fire" OR "distribution center fire" OR "manufacturing plant fire"'
+  );
+  const rssUrl = `https://news.google.com/rss/search?q=${rssQuery}&hl=en-US&gl=US&ceid=US:en`;
+  console.log("[scan] RSS URL:", rssUrl);
+
+  let articleLines = [];
+  try {
+    const res = await fetch(rssUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; fire-tracker/1.0)" },
+      signal: AbortSignal.timeout(15000),
+    });
+    const xml = await res.text();
+    console.log("[scan] RSS snippet:", xml.slice(0, 200));
+    articleLines = parseRSS(xml);
+  } catch (err) {
+    console.log("[scan] RSS fetch failed:", err.message);
+  }
+  console.log(`[scan] RSS articles parsed: ${articleLines.length}`);
+
+  const articles = articleLines.join("\n");
 
   if (!articles) {
     return Response.json({ text: "NO_NEW_FIRES", articleCount: 0 });
   }
 
-  // Step 2: Send only the article titles to Claude for structured extraction.
-  // No web_search tool needed — input tokens are now ~1-2K instead of 30-50K.
-  const prompt = `You are a fire incident data extractor. Below are recent US news article headlines. Extract every fire that occurred at a commercial or business location.
+  const prompt = `You are a fire incident data extractor. Below are recent news article headlines. Extract every fire that occurred at a for-profit commercial or business location in the United States.
 
 Headlines:
 ${articles}
@@ -81,8 +78,8 @@ Already tracked locations (exclude these): ${existingList}
 For each qualifying fire, output exactly one line:
 - City/Location, ST | Date (YYYY-MM-DD) | Facility type | Brief description
 
-Included location types: warehouses, factories, distribution centers, office buildings, corporate campuses, retail stores, shopping centers, restaurants, hotels, hospitals, schools, government buildings, data centers, or any other commercial/business property.
-Excluded: purely residential fires (houses, apartment fires with no commercial component).
+Included location types: warehouses, factories, distribution centers, manufacturing plants, office buildings, corporate campuses, retail stores, shopping centers, restaurants, hotels, data centers, or any other for-profit business property.
+Excluded: hospitals, schools, universities, government buildings, churches, non-profit organizations, and purely residential fires.
 
 Rules:
 - ONLY include incidents located in the United States — discard anything from the UK, Canada, Australia, or any other country
@@ -123,7 +120,7 @@ Rules:
       .map((b) => b.text)
       .join("\n")
       .trim();
-    return Response.json({ text, stopReason: data.stop_reason, articleCount: articleList.length });
+    return Response.json({ text, stopReason: data.stop_reason, articleCount: articleLines.length });
   };
 
   try {
