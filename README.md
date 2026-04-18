@@ -2,7 +2,7 @@
 
 A live map of warehouse, manufacturing, and industrial facility fires reported across the United States. Updated on demand using AI-filtered news headlines.
 
-**[View the live app](https://your-deployed-url-here)**
+**[View the live app](https://warehousefire.watch)**
 
 ---
 
