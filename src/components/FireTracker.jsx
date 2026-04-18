@@ -54,7 +54,12 @@ function getCoords(state, index) {
 
 
 export default function FireTracker() {
-  const [fires, setFires] = useState([]);
+  const [fires, setFires] = useState(() => {
+    try {
+      const saved = localStorage.getItem("firetracker-incidents");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [status, setStatus] = useState("idle");
   const [lastScan, setLastScan] = useState(null);
   const [nextScan, setNextScan] = useState(null);
@@ -126,6 +131,10 @@ export default function FireTracker() {
     countdownRef.current = setInterval(tick, 1000);
     return () => clearInterval(countdownRef.current);
   }, [nextScan]);
+
+  useEffect(() => {
+    try { localStorage.setItem("firetracker-incidents", JSON.stringify(fires)); } catch {}
+  }, [fires]);
 
   const firesWithCoords = fires.map((f, i) => ({
     ...f,
