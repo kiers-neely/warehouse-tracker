@@ -44,7 +44,7 @@ export async function POST(request) {
   let articleList = [];
   // GDELT requires requests spaced at least 5 seconds apart.
   const batches = [
-    '("building fire" OR "warehouse fire" OR "factory fire" OR near5:"manufacturing fire" OR "office fire") sourcelang:english'
+    '("building fire" OR "warehouse fire" OR "factory fire" OR near5:"manufacturing fire" OR "office fire") sourcelang:english',
     '("store fire" OR "hotel fire" OR "restaurant fire" OR "hospital fire" OR "school fire" OR "industrial fire" OR "commercial fire") sourcelang:english',
   ];
   const seen = new Set();
