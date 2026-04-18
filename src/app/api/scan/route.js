@@ -83,7 +83,8 @@ Included location types: warehouses, factories, distribution centers, office bui
 Excluded: purely residential fires (houses, apartment fires with no commercial component).
 
 Rules:
-- Only US locations; state must be the 2-letter abbreviation
+- ONLY include incidents located in the United States — discard anything from the UK, Canada, Australia, or any other country
+- State must be a valid 2-letter US state abbreviation (e.g. CA, TX, NY) — not a country code
 - If no qualifying fires are found, output exactly: NO_NEW_FIRES
 - No other text, preamble, or explanation`;
 

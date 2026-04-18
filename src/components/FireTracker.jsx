@@ -23,12 +23,14 @@ const US_STATES_COORDS = {
 
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
 
+const US_STATES = new Set(Object.keys(US_STATES_COORDS));
+
 function parseFiresFromText(text) {
   const fires = [];
   const lines = text.split("\n").filter((l) => l.trim());
   for (const line of lines) {
     const match = line.match(/^-?\s*(.+?),\s*([A-Z]{2})\s*\|([^|]+)\|([^|]+)\|(.+)$/);
-    if (match) {
+    if (match && US_STATES.has(match[2].trim())) {
       fires.push({
         id: `${Date.now()}-${Math.random()}`,
         location: match[1].trim(),
