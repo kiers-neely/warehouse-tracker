@@ -4,20 +4,22 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
+// Pixel-percentage centers calibrated to the 959x593 Albers Equal Area SVG.
+// Stored as [x%, y%] so no projection conversion is needed.
 const US_STATES_COORDS = {
-  AL: [32.8, -86.8], AK: [64.2, -153.4], AZ: [34.3, -111.1], AR: [34.8, -92.2],
-  CA: [36.8, -119.4], CO: [39.1, -105.4], CT: [41.6, -72.7], DE: [39.0, -75.5],
-  FL: [27.8, -81.6], GA: [32.2, -83.4], HI: [19.9, -155.6], ID: [44.4, -114.5],
-  IL: [40.0, -89.2], IN: [39.9, -86.3], IA: [42.1, -93.2], KS: [38.5, -96.7],
-  KY: [37.7, -84.9], LA: [31.2, -91.8], ME: [44.7, -69.4], MD: [39.0, -76.8],
-  MA: [42.3, -71.8], MI: [44.3, -85.4], MN: [46.4, -93.1], MS: [32.7, -89.7],
-  MO: [38.4, -92.5], MT: [47.0, -110.5], NE: [41.5, -99.9], NV: [38.4, -117.1],
-  NH: [43.7, -71.6], NJ: [40.1, -74.5], NM: [34.8, -106.2], NY: [42.9, -75.5],
-  NC: [35.5, -79.4], ND: [47.5, -100.5], OH: [40.4, -82.8], OK: [35.6, -97.5],
-  OR: [44.1, -120.5], PA: [40.9, -77.8], RI: [41.7, -71.5], SC: [33.9, -80.9],
-  SD: [44.4, -100.2], TN: [35.9, -86.7], TX: [31.1, -97.6], UT: [39.3, -111.1],
-  VT: [44.0, -72.7], VA: [37.8, -79.5], WA: [47.4, -120.5], WV: [38.6, -80.6],
-  WI: [44.3, -89.8], WY: [42.8, -107.5], DC: [38.9, -77.0],
+  AL: [62.0, 74.0], AK: [14.0, 88.0], AZ: [22.4, 65.0], AR: [55.0, 67.5],
+  CA: [12.0, 52.0], CO: [33.5, 51.5], CT: [84.5, 31.5], DE: [83.0, 40.5],
+  FL: [68.5, 83.5], GA: [67.0, 73.5], HI: [27.0, 91.0], ID: [21.5, 30.5],
+  IL: [59.5, 50.0], IN: [63.0, 47.0], IA: [53.5, 42.5], KS: [44.5, 55.5],
+  KY: [65.5, 55.0], LA: [55.5, 78.5], ME: [88.0, 19.5], MD: [80.5, 43.5],
+  MA: [85.5, 28.0], MI: [63.5, 34.5], MN: [51.5, 27.5], MS: [59.0, 75.5],
+  MO: [55.5, 57.0], MT: [27.5, 23.5], NE: [43.0, 45.5], NV: [17.5, 49.0],
+  NH: [85.0, 24.5], NJ: [82.5, 36.5], NM: [31.0, 66.5], NY: [79.0, 30.0],
+  NC: [74.5, 59.5], ND: [43.5, 24.0], OH: [69.0, 43.5], OK: [45.0, 65.5],
+  OR: [14.5, 32.5], PA: [77.5, 37.5], RI: [86.0, 30.5], SC: [72.0, 65.5],
+  SD: [43.0, 36.0], TN: [63.5, 62.5], TX: [45.5, 73.0], UT: [25.5, 51.0],
+  VT: [83.5, 24.0], VA: [76.5, 51.0], WA: [14.5, 20.0], WV: [73.0, 48.5],
+  WI: [58.0, 33.5], WY: [31.0, 37.5], DC: [80.5, 44.5],
 };
 
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
@@ -42,11 +44,12 @@ function parseFiresFromText(text) {
   return fires;
 }
 
+// Returns [x%, y%] with slight jitter to separate overlapping dots in the same state.
 function getCoords(state, index) {
   const base = US_STATES_COORDS[state];
   if (!base) return null;
-  const jitter = Math.sin(index * 137.5) * 1.5;
-  const jitter2 = Math.cos(index * 137.5) * 1.5;
+  const jitter  = Math.sin(index * 137.5) * 1.2;
+  const jitter2 = Math.cos(index * 137.5) * 1.2;
   return [base[0] + jitter, base[1] + jitter2];
 }
 
@@ -332,17 +335,6 @@ export default function FireTracker() {
   );
 }
 
-// Convert lat/lng to percentage position over the continental US map image
-// Map image bounds (Albers projection approximation):
-//   lng: -125 (left) to -66 (right)
-//   lat: 50 (top) to 24 (bottom)
-function latLngToPercent(lat, lng) {
-  const lngMin = -125, lngMax = -66;
-  const latMin = 24,  latMax = 50;
-  const x = ((lng - lngMin) / (lngMax - lngMin)) * 100;
-  const y = ((latMax - lat) / (latMax - latMin)) * 100;
-  return [x, y];
-}
 
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
   return (
@@ -367,8 +359,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire }) {
       {/* Fire dots overlaid as absolutely positioned elements */}
       {fires.map((fire, i) => {
         if (!fire.coords || fire.state === "AK" || fire.state === "HI") return null;
-        const [lat, lng] = fire.coords;
-        const [px, py] = latLngToPercent(lat, lng);
+        const [px, py] = fire.coords;
         if (px < 0 || px > 100 || py < 0 || py > 100) return null;
         const isHighlighted = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
         const color = FIRE_COLORS[i % FIRE_COLORS.length];
