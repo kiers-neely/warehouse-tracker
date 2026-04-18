@@ -159,12 +159,12 @@ export default function FireTracker() {
           }}>
             🔥 US WAREHOUSE FIRE TRACKER
           </div>
-          <div style={{ fontSize: "10px", color: "#6b5040", letterSpacing: "0.2em", marginTop: 4 }}>
+          <div style={{ fontSize: "10px", color: "#a07868", letterSpacing: "0.2em", marginTop: 4 }}>
             INDUSTRIAL & MANUFACTURING FACILITY INCIDENTS · NATIONWIDE
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 11, color: "#8a6050" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 11, color: "#c09070" }}>
             <div style={{
               background: "#1a0a05", border: "1px solid #2a1505", borderRadius: 4,
               padding: "6px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
@@ -172,7 +172,7 @@ export default function FireTracker() {
               <div style={{ color: "#ff4500", fontFamily: "'Bebas Neue'", fontSize: 28, lineHeight: 1 }}>
                 {fires.length}
               </div>
-              <div style={{ fontSize: 9, letterSpacing: "0.15em", color: "#6b4030" }}>INCIDENTS</div>
+              <div style={{ fontSize: 9, letterSpacing: "0.15em", color: "#aa7050" }}>INCIDENTS</div>
             </div>
             <div style={{ textAlign: "right" }}>
               {status === "scanning" ? (
@@ -182,16 +182,16 @@ export default function FireTracker() {
               ) : status === "error" ? (
                 <div style={{ color: "#ff3333" }}>⚠ SCAN ERROR</div>
               ) : (
-                <div style={{ color: "#4a7a4a" }}>● LIVE</div>
+                <div style={{ color: "#6ab86a" }}>● LIVE</div>
               )}
               {lastScan && (
-                <div style={{ fontSize: 9, marginTop: 3, color: "#503020" }}>
+                <div style={{ fontSize: 9, marginTop: 3, color: "#9a6a45" }}>
                   LAST: {lastScan.toLocaleTimeString()}
                 </div>
               )}
               <button onClick={scan} disabled={status === "scanning"} style={{
                 marginTop: 6, background: "transparent", border: "1px solid #2a1505",
-                color: status === "scanning" ? "#503020" : "#ff6a00",
+                color: status === "scanning" ? "#7a5535" : "#ff6a00",
                 padding: "3px 10px", fontSize: 9, letterSpacing: "0.1em",
                 cursor: status === "scanning" ? "not-allowed" : "pointer",
                 borderRadius: 2, display: "block", width: "100%",
@@ -232,7 +232,7 @@ export default function FireTracker() {
             </div>
           )}
           <div style={{ padding: 16, position: "relative" }}>
-            <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#2a1a10", marginBottom: 8 }}>
+            <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#7a5a48", marginBottom: 8 }}>
               INCIDENT MAP · UNITED STATES
             </div>
             <USMap
@@ -247,20 +247,20 @@ export default function FireTracker() {
         {/* Log */}
         <div style={{ flex: "0 0 45%", overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{
-            padding: "12px 20px", borderBottom: "1px solid #1a0f08", fontSize: 9,
-            letterSpacing: "0.2em", color: "#2a1a10", position: "sticky", top: 0,
+            padding: "12px 20px", borderBottom: "1px solid #2a1a10", fontSize: 9,
+            letterSpacing: "0.2em", color: "#8a6a55", position: "sticky", top: 0,
             background: "#0a0a0f", zIndex: 5, display: "flex", justifyContent: "space-between",
           }}>
             <span>INCIDENT LOG</span><span>{fires.length} TOTAL</span>
           </div>
 
           {fires.length === 0 && status === "idle" && (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "#3a2a20", fontSize: 12 }}>
+            <div style={{ padding: "40px 20px", textAlign: "center", color: "#8a6a55", fontSize: 12 }}>
               No incidents found yet.
             </div>
           )}
           {fires.length === 0 && status === "scanning" && (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "#6a4020", fontSize: 12 }}>
+            <div style={{ padding: "40px 20px", textAlign: "center", color: "#c07840", fontSize: 12 }}>
               <div className="spin-icon" style={{ fontSize: 24, display: "block", marginBottom: 12 }}>◌</div>
               Searching news for warehouse fire reports...
             </div>
@@ -272,7 +272,7 @@ export default function FireTracker() {
               className={`fire-row${fire.isNew ? " fire-row-new" : ""}`}
               style={{
                 padding: "12px 20px", borderBottom: "1px solid #120d09",
-                borderLeft: fire.isNew ? "2px solid #ff4500" : "2px solid transparent",
+                borderLeft: fire.isNew ? "2px solid #ff4500" : "2px solid #1e1410",
                 transition: "background 0.2s",
                 background: highlightedFire?.id === fire.id ? "rgba(255,69,0,0.06)" : "transparent",
               }}
@@ -290,17 +290,17 @@ export default function FireTracker() {
                     {fire.location}, {fire.state}
                   </span>
                 </div>
-                <span style={{ fontSize: 10, color: "#4a3020", flexShrink: 0, marginLeft: 8 }}>{fire.date}</span>
+                <span style={{ fontSize: 10, color: "#9a7050", flexShrink: 0, marginLeft: 8 }}>{fire.date}</span>
               </div>
-              <div style={{ fontSize: 11, color: "#7a5a40", marginLeft: 16, marginBottom: 2 }}>{fire.facility}</div>
-              <div style={{ fontSize: 10, color: "#4a3020", marginLeft: 16, lineHeight: 1.4 }}>{fire.source}</div>
+              <div style={{ fontSize: 11, color: "#b08060", marginLeft: 16, marginBottom: 2 }}>{fire.facility}</div>
+              <div style={{ fontSize: 10, color: "#8a6848", marginLeft: 16, lineHeight: 1.4 }}>{fire.source}</div>
             </div>
           ))}
         </div>
       </div>
 
       <div style={{
-        borderTop: "1px solid #150f08", padding: "8px 32px", fontSize: 9, color: "#2a1a10",
+        borderTop: "1px solid #2a1a10", padding: "8px 32px", fontSize: 9, color: "#7a5a48",
         display: "flex", justifyContent: "space-between", letterSpacing: "0.1em",
       }}>
         <span>DATA SOURCED VIA GDELT NEWS INDEX · NOT OFFICIAL EMERGENCY SERVICES DATA</span>
