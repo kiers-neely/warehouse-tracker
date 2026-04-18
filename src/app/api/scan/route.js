@@ -23,7 +23,7 @@ export async function POST(request) {
   // Step 1: Fetch headlines from Google News RSS — no API key, no rate limits.
   // Switched from GDELT which enforces a strict 1-request-per-5s limit that
   // proved unreliable across Vercel's serverless instances.
-  const CUTOFF_DATE = new Date("2026-04-07T00:00:00Z");
+  const CUTOFF_DATE = new Date("2026-04-06T00:00:00Z");
 
   function parseRSS(xml) {
     const items = [];
@@ -45,8 +45,7 @@ export async function POST(request) {
   }
 
   const rssQuery = encodeURIComponent(
-    'warehouse fire OR factory fire OR "office building fire" OR "industrial fire" OR ' +
-    '"commercial building fire" OR "store fire" OR "distribution center fire" OR "manufacturing facility fire"'
+    '(warehouse OR "manufacturing facility" OR "distribution center" OR industrial OR "storage facility" OR restaurant OR retail) fire after:2026-04-06'
   );
   const rssUrl = `https://news.google.com/rss/search?q=${rssQuery}&hl=en-US&gl=US&ceid=US:en`;
   console.log("[scan] RSS URL:", rssUrl);
