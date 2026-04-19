@@ -47,9 +47,9 @@ export async function POST(request) {
   // Three complementary queries run in parallel — each RSS feed caps at ~100 results,
   // so parallel fetches with different terms give us a much wider net.
   const RSS_QUERIES = [
-    '(warehouse OR factory OR manufacturing OR industrial) fire after:2026-04-06',
-    '(distribution OR fulfillment OR logistics OR storage OR production) fire after:2026-04-06',
-    '(facility OR plant OR campus OR datacenter OR arson) fire after:2026-04-06',
+    '(warehouse OR factory OR manufacturing OR industrial OR distribution OR fulfillment OR production) fire after:2026-04-06',
+    '(employee OR arson OR investigating) fire after:2026-04-06',
+    '(facility OR plant OR campus OR massive) fire after:2026-04-06',
   ];
 
   const fetchRSS = async (query) => {
