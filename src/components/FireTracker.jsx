@@ -98,7 +98,8 @@ export default function FireTracker() {
             const unique = newFires.filter(
               (f) => !existingKeys.has(`${f.location}-${f.state}-${f.date}`)
             );
-            return [...unique, ...prev.map((f) => ({ ...f, isNew: false }))];
+            const merged = [...unique, ...prev.map((f) => ({ ...f, isNew: false }))];
+            return merged.sort((a, b) => b.date.localeCompare(a.date));
           });
         }
       }
@@ -122,7 +123,9 @@ export default function FireTracker() {
       const saved = localStorage.getItem("firetracker-incidents");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) setFires(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFires(parsed.sort((a, b) => b.date.localeCompare(a.date)));
+        }
       }
     } catch {}
   }, []);
