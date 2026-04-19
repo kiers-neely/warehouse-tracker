@@ -47,8 +47,8 @@ export async function POST(request) {
   // Three complementary queries run in parallel — each RSS feed caps at ~100 results,
   // so parallel fetches with different terms give us a much wider net.
   const RSS_QUERIES = [
-    '(warehouse OR factory OR manufacturing OR industrial OR distribution OR fulfillment OR production) fire after:2026-04-06',
-    '(employee OR arson OR investigating OR facility OR plant OR campus OR logistics OR massive) fire after:2026-04-06',
+    '(warehouse OR factory OR manufacturing OR industrial OR distribution OR "fulfillment center" OR production) fire after:2026-04-06',
+    '(employee OR arson OR investigating OR facility OR plant OR campus OR logistics OR massive OR inventory) fire after:2026-04-06',
   ];
 
   const fetchRSS = async (query) => {
@@ -91,7 +91,7 @@ export async function POST(request) {
     return Response.json({ text: "NO_NEW_FIRES", articleCount: 0 });
   }
 
-  const prompt = `You are a fire incident data extractor. Below are recent news article headlines. Extract every fire that occurred at a large commercial or industrial facility in the United States where corporate property or inventory was at risk.
+  const prompt = `You are a fire incident data extractor. Below are recent news article headlines. Extract every fire that occurred at a commercial building or industrial facility in the United States where corporate property or inventory was at risk.
 
 Headlines:
 ${articles}
@@ -102,7 +102,7 @@ For each qualifying fire, output exactly one line:
 - City/Location, ST | Date (YYYY-MM-DD) | Facility type | Brief description
 
 Included facility types: warehouses, factories, distribution centers, fulfillment centers, logistics centers, manufacturing plants, industrial facilities, storage facilities, corporate campuses, office buildings, and data centers.
-Excluded: small restaurant fires, cafes, bars, hospitals, schools, universities, non-profit organizations, and residential fires.
+Excluded: small restaurants, cafes, bars, hospitals, schools, universities, non-profit organizations, and residential fires.
 
 Rules:
 - ONLY include incidents located in the United States — discard anything from the UK, Canada, Australia, or any other country
