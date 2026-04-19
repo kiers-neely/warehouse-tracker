@@ -96,11 +96,18 @@ export default function FireTracker() {
         const newFires = parseFiresFromText(text);
         if (newFires.length > 0) {
           setFires((prev) => {
+            const newFiresByKey = new Map(newFires.map((f) => [`${f.location}-${f.state}-${f.date}`, f]));
             const existingKeys = new Set(prev.map((f) => `${f.location}-${f.state}-${f.date}`));
             const unique = newFires.filter(
               (f) => !existingKeys.has(`${f.location}-${f.state}-${f.date}`)
             );
-            const merged = [...unique, ...prev.map((f) => ({ ...f, isNew: false }))];
+            const merged = [
+              ...unique,
+              ...prev.map((f) => {
+                const match = newFiresByKey.get(`${f.location}-${f.state}-${f.date}`);
+                return { ...f, isNew: false, url: f.url || match?.url || "" };
+              }),
+            ];
             return merged.sort((a, b) => b.date.localeCompare(a.date));
           });
         }
