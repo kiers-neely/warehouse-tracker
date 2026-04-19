@@ -65,6 +65,7 @@ export default function FireTracker() {
   const [isMobile, setIsMobile] = useState(false);
   const firesRef = useRef(fires);
   firesRef.current = fires;
+  const autoScansRemaining = useRef(2);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -114,6 +115,17 @@ export default function FireTracker() {
   useEffect(() => {
     scan();
   }, []); // eslint-disable-line
+
+  // After each scan completes, automatically run up to 2 more scans on initial load.
+  // Google News RSS doesn't return all relevant articles in a single request — subsequent
+  // fetches return a different mix, surfacing fires that the first pass missed.
+  // Each additional scan passes already-found fires as exclusions so Claude only returns new ones.
+  useEffect(() => {
+    if (status === "idle" && lastScan !== null && autoScansRemaining.current > 0) {
+      autoScansRemaining.current -= 1;
+      scan();
+    }
+  }, [status, lastScan, scan]);
 
 
   // Restore saved incidents after mount — must use useEffect, not useState initializer,
