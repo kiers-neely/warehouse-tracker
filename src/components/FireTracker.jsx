@@ -65,6 +65,7 @@ export default function FireTracker() {
   const [isMobile, setIsMobile] = useState(false);
   const firesRef = useRef(fires);
   firesRef.current = fires;
+  const autoScansRemaining = useRef(2);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -98,7 +99,8 @@ export default function FireTracker() {
             const unique = newFires.filter(
               (f) => !existingKeys.has(`${f.location}-${f.state}-${f.date}`)
             );
-            return [...unique, ...prev.map((f) => ({ ...f, isNew: false }))];
+            const merged = [...unique, ...prev.map((f) => ({ ...f, isNew: false }))];
+            return merged.sort((a, b) => b.date.localeCompare(a.date));
           });
         }
       }
@@ -114,6 +116,17 @@ export default function FireTracker() {
     scan();
   }, []); // eslint-disable-line
 
+  // After each scan completes, automatically run up to 2 more scans on initial load.
+  // Google News RSS doesn't return all relevant articles in a single request — subsequent
+  // fetches return a different mix, surfacing fires that the first pass missed.
+  // Each additional scan passes already-found fires as exclusions so Claude only returns new ones.
+  useEffect(() => {
+    if (status === "idle" && lastScan !== null && autoScansRemaining.current > 0) {
+      autoScansRemaining.current -= 1;
+      scan();
+    }
+  }, [status, lastScan, scan]);
+
 
   // Restore saved incidents after mount — must use useEffect, not useState initializer,
   // because localStorage is unavailable during Next.js SSR and React reuses server state.
@@ -122,7 +135,9 @@ export default function FireTracker() {
       const saved = localStorage.getItem("firetracker-incidents");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) setFires(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFires(parsed.sort((a, b) => b.date.localeCompare(a.date)));
+        }
       }
     } catch {}
   }, []);
