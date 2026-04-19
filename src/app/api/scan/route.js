@@ -48,8 +48,7 @@ export async function POST(request) {
   // so parallel fetches with different terms give us a much wider net.
   const RSS_QUERIES = [
     '(warehouse OR factory OR manufacturing OR industrial OR distribution OR fulfillment OR production) fire after:2026-04-06',
-    '(employee OR arson OR investigating) fire after:2026-04-06',
-    '(facility OR plant OR campus OR massive) fire after:2026-04-06',
+    '(employee OR arson OR investigating OR facility OR plant OR campus OR logistics OR massive) fire after:2026-04-06',
   ];
 
   const fetchRSS = async (query) => {
@@ -103,7 +102,7 @@ For each qualifying fire, output exactly one line:
 - City/Location, ST | Date (YYYY-MM-DD) | Facility type | Brief description
 
 Included facility types: warehouses, factories, distribution centers, fulfillment centers, logistics centers, manufacturing plants, industrial facilities, storage facilities, corporate campuses, office buildings, and data centers.
-Excluded: restaurants, cafes, bars, hotels, motels, retail stores, shopping centers, strip malls, hospitals, schools, universities, government buildings, churches, non-profit organizations, and residential fires.
+Excluded: small restaurant fires, cafes, bars, hospitals, schools, universities, non-profit organizations, and residential fires.
 
 Rules:
 - ONLY include incidents located in the United States — discard anything from the UK, Canada, Australia, or any other country
