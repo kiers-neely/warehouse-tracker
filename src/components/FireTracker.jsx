@@ -29,7 +29,7 @@ function parseFiresFromText(text) {
   const lines = text.split("\n").filter((l) => l.trim());
   for (const line of lines) {
     if (/excluded/i.test(line)) continue;
-    const match = line.match(/^-?\s*(.+?),\s*([A-Z]{2})\s*\|([^|]+)\|([^|]+)\|(.+)$/);
+    const match = line.match(/^-?\s*(.+?),\s*([A-Z]{2})\s*\|([^|]+)\|([^|]+)\|([^|]+?)(?:\|\s*(https?:\/\/\S+))?$/);
     if (match && US_STATES.has(match[2].trim())) {
       fires.push({
         id: `${Date.now()}-${Math.random()}`,
@@ -38,6 +38,7 @@ function parseFiresFromText(text) {
         date: match[3].trim(),
         facility: match[4].trim(),
         source: match[5].trim(),
+        url: match[6]?.trim() || "",
         isNew: true,
       });
     }
@@ -320,7 +321,20 @@ export default function FireTracker() {
                     {fire.location}, {fire.state}
                   </span>
                 </div>
-                <span style={{ fontSize: 10, color: "#9a7050", flexShrink: 0, marginLeft: 8 }}>{fire.date}</span>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0, marginLeft: 8 }}>
+                  <span style={{ fontSize: 10, color: "#9a7050" }}>{fire.date}</span>
+                  {fire.url && (
+                    <a
+                      href={fire.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 9, color: "#c07040", textDecoration: "underline", letterSpacing: "0.05em" }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View Article
+                    </a>
+                  )}
+                </div>
               </div>
               <div style={{ fontSize: 11, color: "#b08060", marginLeft: 16, marginBottom: 2 }}>{fire.facility}</div>
               <div style={{ fontSize: 10, color: "#8a6848", marginLeft: 16, lineHeight: 1.4 }}>{fire.source}</div>
