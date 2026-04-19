@@ -107,10 +107,10 @@ ${articles}
 
 Already tracked locations (exclude these): ${existingList}
 
-For each qualifying fire, output exactly one line:
+For each qualifying fire, output exactly one line in this format:
 - City/Location, ST | Date (YYYY-MM-DD) | Facility type | Brief description [N]
 
-where [N] is replaced with the bracket number of the headline that best supports this incident (e.g. [3]).
+The [N] citation is REQUIRED — every line MUST end with [N] where N is the bracket number of the headline that best supports this incident (e.g. [3]). A line without a citation is invalid and must not be output.
 
 Included facility types: warehouses, factories, distribution centers, fulfillment centers, logistics centers, manufacturing plants, industrial facilities, storage facilities, corporate campuses, office buildings, and data centers.
 Excluded: small restaurants, cafes, bars, hospitals, schools, universities, non-profit organizations, and residential fires.
@@ -118,6 +118,7 @@ Excluded: small restaurants, cafes, bars, hospitals, schools, universities, non-
 Rules:
 - ONLY include incidents located in the United States — discard anything from the UK, Canada, Australia, or any other country
 - State must be a valid 2-letter US state abbreviation (e.g. CA, TX, NY) — not a country code
+- ONE line per physical incident — if multiple headlines describe the same fire at the same location, output only one line using the most informative headline's number
 - Do NOT output excluded incidents in any form — simply omit them entirely
 - If no qualifying fires are found, output exactly: NO_NEW_FIRES
 - No other text, preamble, explanation, or annotations`;
