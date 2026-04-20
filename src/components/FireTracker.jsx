@@ -118,7 +118,7 @@ export default function FireTracker() {
 
         <div style={{ display: "flex", gap: 15, alignItems: "center" }}>
           <div style={{ background: "#1a0a05", border: "2px solid #ff4500", borderRadius: 6, padding: "8px 16px", textAlign: "center" }}>
-            <div style={{ fontSize: 10, color: "#8a6a55", letterSpacing: "0.1em", marginBottom: 4 }}>ACTIVE INCIDENTS</div>
+            <div style={{ fontSize: 10, color: "#8a6a55", letterSpacing: "0.1em", marginBottom: 4 }}>FIRES TRACKED</div>
             <div style={{ fontSize: "clamp(18px, 4vw, 28px)", color: "#ff4500", fontWeight: "bold", fontFamily: "'Bebas Neue',sans-serif" }}>{fires.length}</div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
