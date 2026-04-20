@@ -88,7 +88,7 @@ export default function FireTracker() {
         const d = await res.json();
         throw new Error(d.error || "Save failed");
       }
-      alert(view === "admin" ? "Fire Added Successfully!" : "Thank you! Submission sent for review.");
+      alert("Thank you! Submission sent for review.");
       setView("map");
       fetchApprovedFires();
     } catch (e) {
@@ -170,11 +170,8 @@ export default function FireTracker() {
         ) : (
           <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "40px 20px", overflowY: "auto" }}>
             <div style={{ width: "100%", maxWidth: 500, background: "#121217", padding: 30, borderRadius: 8, border: "1px solid #222" }}>
-               <h2 style={{ color: "#ff4500", marginBottom: 20 }}>{view === "report" ? "Report an Incident" : "Admin Add"}</h2>
+               <h2 style={{ color: "#ff4500", marginBottom: 20 }}>Report an Incident</h2>
                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
-                  {view === "admin" && (
-                    <input name="admin_password" type="password" placeholder="Admin Secret" required style={inputStyle} />
-                  )}
                   <input name="title" placeholder="Short Headline (e.g. 3-Alarm Factory Fire)" required style={inputStyle} />
                   <input name="location" placeholder="City, ST (e.g. Dallas, TX)" required style={inputStyle} />
                   <input name="facility_type" placeholder="Type (e.g. Logistics Center)" style={inputStyle} />
@@ -197,7 +194,7 @@ export default function FireTracker() {
       {/* Footer / Hidden Admin Entry */}
       <footer style={{ padding: 10, textAlign: "center", fontSize: 9, color: "#333", borderTop: "1px solid #111" }}>
         © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER · 
-        <span onClick={() => setView("admin")} style={{ cursor: "pointer" }}> ADMIN LOGIN</span>
+        <span onClick={() => window.location.href = "/admin"} style={{ cursor: "pointer" }}> ADMIN LOGIN</span>
       </footer>
     </div>
   );

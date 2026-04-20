@@ -50,6 +50,27 @@ export default function ModerationPage() {
     }
   };
 
+  const handleAdminAdd = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const payload = Object.fromEntries(formData.entries());
+    
+    try {
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "Add failed");
+      }
+      alert("Incident Added Successfully!");
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div style={containerStyle}>
@@ -102,6 +123,19 @@ export default function ModerationPage() {
             ))}
           </div>
         )}
+      </div>
+
+      <div style={{ marginTop: 40, padding: 20, background: "#121217", borderRadius: 8, border: "1px solid #222", width: "100%", maxWidth: "800px" }}>
+        <h2 style={{ color: "#ff4500", marginBottom: 20 }}>Add New Incident (Approved Directly)</h2>
+        <form onSubmit={handleAdminAdd} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
+          <input name="admin_password" type="password" placeholder="Confirm Admin Password" required style={inputStyle} />
+          <input name="title" placeholder="Short Headline" required style={inputStyle} />
+          <input name="location" placeholder="City, ST" required style={inputStyle} />
+          <input name="facility_type" placeholder="Type" style={inputStyle} />
+          <input name="date_occurred" type="date" required style={inputStyle} />
+          <input name="url" placeholder="News Article URL" style={inputStyle} />
+          <button type="submit" style={btnStyle}>Add Incident</button>
+        </form>
       </div>
     </div>
   );
