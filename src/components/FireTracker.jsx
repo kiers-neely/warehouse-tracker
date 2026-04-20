@@ -54,10 +54,7 @@ export default function FireTracker() {
       const res = await fetch("/api/scan"); 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      console.log('All incidents:', data.incidents);
-      const filtered = data.incidents.filter(incident => incident.status === 'approved') || [];
-      console.log('Filtered fires:', filtered);
-      setFires(filtered);
+      setFires(data.incidents.filter(incident => incident.status === 'approved') || []);
       setStatus("idle");
     } catch (e) {
       setErrorMsg(e.message);
