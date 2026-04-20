@@ -179,10 +179,14 @@ export default function FireTracker() {
           <>
             {/* Map Column */}
             <div style={{ flex: isMobile ? "0 0 300px" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
-               <USMap 
-                fires={fires.map((f, i) => ({ ...f, coords: getCoords(f.location.split(', ')[1], i) }))} 
+               <USMap
+                fires={fires.map((f, i) => {
+                  // Prefer the dedicated state column; fall back to parsing from location string
+                  const state = f.state || (f.location?.match(/,\s*([A-Z]{2})$/)?.[1] ?? null);
+                  return { ...f, state, coords: getCoords(state, i) };
+                })}
                 hoveredFire={hoveredFire} setHoveredFire={setHoveredFire}
-                highlightedFire={highlightedFire} isMobile={isMobile} 
+                highlightedFire={highlightedFire} isMobile={isMobile}
                />
             </div>
 
@@ -277,8 +281,9 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
       <div className="scan-beam"></div>
       <img src="/us-map.svg" alt="US Map" style={{ width: "100%", opacity: 0.3, filter: "invert(1)" }} />
       {fires.map((fire, i) => {
-        if (!fire.coords) return null;
+        if (!fire.coords || fire.state === "AK" || fire.state === "HI") return null;
         const [x, y] = fire.coords;
+        if (x < 0 || x > 100 || y < 0 || y > 100) return null;
         const active = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
         return (
           <div key={fire.id}
