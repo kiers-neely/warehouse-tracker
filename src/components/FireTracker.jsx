@@ -117,9 +117,9 @@ export default function FireTracker() {
         </div>
 
         <div style={{ display: "flex", gap: 15, alignItems: "center" }}>
-          <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "8px 16px", textAlign: "center" }}>
-            <div style={{ fontSize: 10, color: "#8a6a55", letterSpacing: "0.1em", marginBottom: 4 }}>FIRES TRACKED</div>
-            <div style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif" }}>{fires.length}</div>
+          <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
+            <span style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => setView(view === "report" ? "map" : "report")} style={navBtnStyle}>
