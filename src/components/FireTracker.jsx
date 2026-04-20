@@ -209,6 +209,10 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
           90% { opacity: 1; }
           100% { left: 105%; opacity: 0; }
         }
+        @keyframes breathe {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); }
+          50% { transform: translate(-50%, -50%) scale(1.4); }
+        }
         .scan-beam {
           position: absolute;
           top: 0;
@@ -220,6 +224,9 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
           pointer-events: none;
           z-index: 0;
         }
+        .fire-marker-breathing {
+          animation: breathe 0.8s ease-in-out !important;
+        }
       `}</style>
       <div className="scan-beam"></div>
       <img src="/us-map.svg" alt="US Map" style={{ width: "100%", opacity: 0.2, filter: "invert(1)" }} />
@@ -227,17 +234,23 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
         if (!fire.coords) return null;
         const [x, y] = fire.coords;
         const active = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
+        // Calculate animation delay so breathing happens when beam passes over this fire
+        const beamReachTime = ((x + 5) / 110) * 6;
+        const animationDelay = -(beamReachTime - 0.4);
         return (
           <div key={fire.id}
             onMouseEnter={() => setHoveredFire(fire)}
             onMouseLeave={() => setHoveredFire(null)}
+            className="fire-marker-breathing"
             style={{
               position: "absolute", left: `${x}%`, top: `${y}%`,
               width: active ? 12 : 8, height: active ? 12 : 8,
               background: FIRE_COLORS[i % 5], borderRadius: "50%",
               transform: "translate(-50%, -50%)", cursor: "pointer",
               boxShadow: active ? `0 0 15px ${FIRE_COLORS[i % 5]}` : "none",
-              zIndex: active ? 100 : 1, transition: "all 0.2s"
+              zIndex: active ? 100 : 1, transition: "all 0.2s",
+              animationDelay: `${animationDelay}s`,
+              animationIterationCount: "infinite"
             }}
           >
             {active && (
