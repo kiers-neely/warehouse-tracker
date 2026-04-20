@@ -152,7 +152,7 @@ export default function FireTracker() {
             </button>
             <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
             <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED</span>
+              <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
               <span style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function FireTracker() {
               <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
             </div>
             <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED</span>
+              <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
               <span style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
             </div>
           </div>
