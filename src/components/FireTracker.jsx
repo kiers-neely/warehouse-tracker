@@ -1,45 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
-// --- CONSTANTS ---
-const US_STATES_COORDS = {
-  AL: [68.2, 70.1], AK: [12.1, 90.2], AZ: [20.3, 61.7], AR: [57.2, 63.1],
-  CA: [9.5,  46.5], CO: [33.1, 46.0], CT: [89.6, 30.3], DE: [86.3, 40.8],
-  FL: [75.1, 86.2], GA: [74.5, 68.3], HI: [30.9, 92.2], ID: [20.1, 18.8],
-  IL: [61.6, 44.0], IN: [67.2, 43.3], IA: [54.6, 36.3], KS: [45.8, 49.1],
-  KY: [68.8, 50.7], LA: [59.0, 76.9], ME: [93.4, 14.8], MD: [83.0, 42.2],
-  MA: [91.1, 26.7], MI: [64.2, 24.4], MN: [54.2, 19.9], MS: [61.9, 70.7],
-  MO: [56.6, 49.8], MT: [28.5, 14.7], NE: [43.8, 37.7], NV: [13.9, 42.5],
-  NH: [90.4, 20.6], NJ: [87.0, 36.7], NM: [31.0, 63.1], NY: [84.2, 26.4],
-  NC: [80.0, 56.3], ND: [43.2, 15.6], OH: [73.0, 40.0], OK: [45.2, 60.9],
-  OR: [10.1, 20.0], PA: [81.6, 35.7], RI: [91.5, 29.5], SC: [78.4, 64.1],
-  SD: [43.0, 27.6], TN: [68.5, 57.7], TX: [42.2, 76.3], UT: [22.6, 42.1],
-  VT: [88.1, 21.5], VA: [80.0, 47.7], WA: [12.1, 12.0], WV: [78.1, 44.5],
-  WI: [60.2, 25.4], WY: [30.7, 30.5], DC: [83.6, 42.6],
-};
-
-const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
-
-function getCoords(state, index) {
-  const base = US_STATES_COORDS[state];
-  if (!base) return null;
-  const jitter = Math.sin(index * 137.5) * 1.2;
-  const jitter2 = Math.cos(index * 137.5) * 1.2;
-  return [base[0] + jitter, base[1] + jitter2];
-}
+// (Keep your US_STATES_COORDS and FIRE_COLORS constants here...)
 
 export default function FireTracker() {
   const [fires, setFires] = useState([]);
-  const [view, setView] = useState("map"); // "map", "report", or "admin"
+  const [view, setView] = useState("map"); 
   const [status, setStatus] = useState("idle");
-  const [errorMsg, setErrorMsg] = useState(null);
   const [highlightedFire, setHighlightedFire] = useState(null);
-  const [hoveredFire, setHoveredFire] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
 
-  // Handle Mobile Detection
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
@@ -47,32 +18,26 @@ export default function FireTracker() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Fetch approved fires for the map
-  const fetchApprovedFires = useCallback(async () => {
+  const fetchFires = useCallback(async () => {
     setStatus("loading");
     try {
-      const res = await fetch("/api/scan"); 
+      const res = await fetch("/api/scan");
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      // The API now only sends status === 'approved'
       setFires(data.incidents || []);
-      setStatus("idle");
     } catch (e) {
-      setErrorMsg(e.message);
-      setStatus("error");
+      console.error("Fetch error:", e);
+    } finally {
+      setStatus("idle");
     }
   }, []);
 
-  useEffect(() => { fetchApprovedFires(); }, [fetchApprovedFires]);
+  useEffect(() => { fetchFires(); }, [fetchFires]);
 
-  // Submission Handler (Public or Admin)
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const payload = Object.fromEntries(formData.entries());
-    
-    // Extract state from location string "City, ST" if needed
-    const stateMatch = payload.location.match(/,\s*([A-Z]{2})$/);
-    if (stateMatch) payload.state = stateMatch[1];
 
     setStatus("saving");
     try {
@@ -81,13 +46,11 @@ export default function FireTracker() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || "Save failed");
-      }
-      alert(view === "admin" ? "Fire Added Successfully!" : "Thank you! Submission sent for review.");
+      if (!res.ok) throw new Error("Submission failed");
+      
+      alert(payload.admin_password ? "Added to map!" : "Sent for approval!");
       setView("map");
-      fetchApprovedFires();
+      fetchFires();
     } catch (e) {
       alert(e.message);
     } finally {
@@ -96,105 +59,49 @@ export default function FireTracker() {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh", height: isMobile ? "auto" : "100vh",
-      overflow: isMobile ? "auto" : "hidden", background: "#0a0a0f",
-      color: "#e8e0d5", fontFamily: "'DM Mono', monospace",
-      display: "flex", flexDirection: "column",
-    }}>
-
-      {/* Header */}
-      <header style={{
-        borderBottom: "1px solid #2a1a0f", padding: isMobile ? "14px 16px" : "20px 32px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
-      }}>
-        <div onClick={() => setView("map")} style={{ cursor: "pointer" }}>
-          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(20px,4vw,32px)", color: "#ff4500", letterSpacing: "0.1em" }}>
-            🔥 US WAREHOUSE FIRE TRACKER
-          </div>
-          <div style={{ fontSize: "9px", color: "#a07868", letterSpacing: "0.2em" }}>CROWDSOURCED INDUSTRIAL INCIDENT MAP</div>
-        </div>
-
+    <div style={{ minHeight: "100vh", background: "#0a0a0f", color: "#e8e0d5", display: "flex", flexDirection: "column", fontFamily: "monospace" }}>
+      <header style={{ padding: 20, display: "flex", justifyContent: "space-between", borderBottom: "1px solid #222" }}>
+        <h1 style={{ color: "#ff4500", margin: 0, fontSize: isMobile ? 18 : 24 }}>🔥 WAREHOUSE FIRE TRACKER</h1>
         <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => setView(view === "report" ? "map" : "report")} style={navBtnStyle}>
-            {view === "report" ? "✕ CLOSE" : "✚ REPORT FIRE"}
+          <button onClick={() => setView(view === "report" ? "map" : "report")} style={btnStyle}>
+            {view === "report" ? "✕ CLOSE" : "✚ REPORT"}
           </button>
-          {!isMobile && (
-             <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
-          )}
         </div>
       </header>
 
-      {/* Main Content Area */}
       <main style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: "hidden" }}>
-        
         {view === "map" ? (
           <>
-            {/* Map Column */}
-            <div style={{ flex: isMobile ? "none" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
-               <USMap 
-                fires={fires.map((f, i) => ({ ...f, coords: getCoords(f.location.split(', ')[1], i) }))} 
-                hoveredFire={hoveredFire} setHoveredFire={setHoveredFire}
-                highlightedFire={highlightedFire} isMobile={isMobile} 
-               />
+            <div style={{ flex: 2, padding: 20, position: "relative" }}>
+              <USMap fires={fires} highlightedFire={highlightedFire} />
             </div>
-
-            {/* Log Column */}
-            <div style={{ flex: isMobile ? "none" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
-              <div style={{ padding: 15, fontSize: 10, color: "#8a6a55", borderBottom: "1px solid #1a1a1f" }}>INCIDENT LOG ({fires.length})</div>
-              {fires.map((fire, i) => (
-                <div 
-                  key={fire.id} 
-                  onMouseEnter={() => setHighlightedFire(fire)}
-                  onMouseLeave={() => setHighlightedFire(null)}
-                  style={{ 
-                    padding: "15px 20px", borderBottom: "1px solid #120d09", 
-                    background: highlightedFire?.id === fire.id ? "#1a0a05" : "transparent"
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                    <span style={{ color: FIRE_COLORS[i % 5], fontWeight: "bold" }}>{fire.location}</span>
-                    <span style={{ color: "#777" }}>{fire.date_occurred}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: "#d4b090", marginTop: 4 }}>{fire.facility_type}</div>
-                  <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>{fire.title}</div>
-                  {fire.url && <a href={fire.url} target="_blank" style={{ fontSize: 9, color: "#ff6a00", textDecoration: "none" }}>→ View Source</a>}
-                </div>
-              ))}
+            <div style={{ flex: 1, borderLeft: "1px solid #222", overflowY: "auto", background: "#050508" }}>
+               {fires.map(f => (
+                 <div key={f.id} onMouseEnter={() => setHighlightedFire(f)} style={{ padding: 15, borderBottom: "1px solid #111" }}>
+                   <div style={{ color: "#ff4500", fontSize: 14 }}>{f.location}</div>
+                   <div style={{ fontSize: 11, color: "#666" }}>{f.date_occurred} — {f.facility_type}</div>
+                 </div>
+               ))}
             </div>
           </>
         ) : (
-          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "40px 20px", overflowY: "auto" }}>
-            <div style={{ width: "100%", maxWidth: 500, background: "#121217", padding: 30, borderRadius: 8, border: "1px solid #222" }}>
-               <h2 style={{ color: "#ff4500", marginBottom: 20 }}>{view === "report" ? "Report an Incident" : "Admin Add"}</h2>
-               <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
-                  {view === "admin" && (
-                    <input name="admin_password" type="password" placeholder="Admin Secret" required style={inputStyle} />
-                  )}
-                  <input name="title" placeholder="Short Headline (e.g. 3-Alarm Factory Fire)" required style={inputStyle} />
-                  <input name="location" placeholder="City, ST (e.g. Dallas, TX)" required style={inputStyle} />
-                  <input name="facility_type" placeholder="Type (e.g. Logistics Center)" style={inputStyle} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: 10, color: "#666" }}>Date of Incident</label>
-                    <input name="date_occurred" type="date" required style={inputStyle} />
-                  </div>
-                  <input name="url" placeholder="News Article URL" style={inputStyle} />
-                  
-                  <button type="submit" disabled={status === "saving"} style={{ ...navBtnStyle, padding: 15, background: "#ff4500", color: "white" }}>
-                    {status === "saving" ? "PROCESSING..." : "SUBMIT FOR REVIEW"}
-                  </button>
-                  <button type="button" onClick={() => setView("map")} style={{ background: "none", border: "none", color: "#666", fontSize: 11, cursor: "pointer" }}>Cancel</button>
-               </form>
-            </div>
+          <div style={{ flex: 1, padding: 40, display: "flex", justifyContent: "center" }}>
+            <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", gap: 15 }}>
+              <input name="admin_password" type="password" placeholder="Admin Password (leave blank for public)" style={inputStyle} />
+              <input name="title" placeholder="Title" required style={inputStyle} />
+              <input name="location" placeholder="City, ST" required style={inputStyle} />
+              <input name="facility_type" placeholder="Facility Type" style={inputStyle} />
+              <input name="date_occurred" type="date" required style={inputStyle} />
+              <input name="url" placeholder="URL" style={inputStyle} />
+              <button type="submit" style={{ ...btnStyle, background: "#ff4500", color: "white" }}>
+                {status === "saving" ? "SUBMITTING..." : "SUBMIT"}
+              </button>
+            </form>
           </div>
         )}
       </main>
-
-      {/* Footer / Hidden Admin Entry */}
-      <footer style={{ padding: 10, textAlign: "center", fontSize: 9, color: "#333", borderTop: "1px solid #111" }}>
-        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER · 
-        <span onClick={() => setView("admin")} style={{ cursor: "pointer" }}> ADMIN LOGIN</span>
+      <footer style={{ padding: 10, textAlign: "center", fontSize: 10, color: "#222" }}>
+         <span onClick={() => window.location.href='/admin'} style={{ cursor: 'pointer' }}>MODERATION PANEL</span>
       </footer>
     </div>
   );
