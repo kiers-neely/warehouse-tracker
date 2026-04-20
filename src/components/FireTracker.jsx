@@ -127,10 +127,22 @@ export default function FireTracker() {
         }
       >
         <div onClick={() => setView("map")} style={{ cursor: "pointer", marginBottom: isMobile ? 8 : 0 }}>
-          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(20px,4vw,44px)", color: "#ff4500", letterSpacing: "0.1em" }}>
+          <div
+            style={{
+              fontFamily: "'Bebas Neue',sans-serif",
+              fontSize: isMobile ? "clamp(28px,10vw,44px)" : "clamp(20px,4vw,44px)",
+              color: "#ff4500",
+              letterSpacing: "0.1em",
+              textAlign: isMobile ? "center" : undefined,
+              width: isMobile ? "100%" : undefined,
+              lineHeight: 1.05,
+            }}
+          >
             🔥 US WAREHOUSE FIRE TRACKER
           </div>
-          <div style={{ fontSize: "9px", color: "#a07868", letterSpacing: "0.2em" }}>CROWDSOURCED INDUSTRIAL INCIDENT MAP</div>
+          <div style={{ fontSize: "9px", color: "#a07868", letterSpacing: "0.2em", textAlign: isMobile ? "center" : undefined }}>
+            CROWDSOURCED INDUSTRIAL INCIDENT MAP
+          </div>
         </div>
 
         {isMobile ? (
