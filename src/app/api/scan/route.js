@@ -17,7 +17,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from('incidents')
       .select('*')
-      .order('date_added', { ascending: false });
+      .order('date_occurred', { ascending: false });
 
     if (error) throw error;
 
