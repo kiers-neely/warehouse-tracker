@@ -17,7 +17,6 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from('incidents')
       .select('*')
-      .eq('status', 'approved')
       .order('date_added', { ascending: false });
 
     if (error) throw error;
