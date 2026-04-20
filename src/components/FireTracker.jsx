@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
-
-// [x%, y%] centers derived by parsing actual path bounding boxes from the 959x593 SVG.
+// --- CONSTANTS ---
 const US_STATES_COORDS = {
   AL: [68.2, 70.1], AK: [12.1, 90.2], AZ: [20.3, 61.7], AR: [57.2, 63.1],
   CA: [9.5,  46.5], CO: [33.1, 46.0], CT: [89.6, 30.3], DE: [86.3, 40.8],
@@ -22,52 +21,25 @@ const US_STATES_COORDS = {
 
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
 
-const US_STATES = new Set(Object.keys(US_STATES_COORDS));
-
-function parseFiresFromText(text) {
-  const fires = [];
-  const lines = text.split("\n").filter((l) => l.trim());
-  for (const line of lines) {
-    if (/excluded/i.test(line)) continue;
-    const match = line.match(/^-?\s*(.+?),\s*([A-Z]{2})\s*\|([^|]+)\|([^|]+)\|([^|]+?)(?:\|\s*(https?:\/\/\S+))?$/);
-    if (match && US_STATES.has(match[2].trim())) {
-      fires.push({
-        id: `${Date.now()}-${Math.random()}`,
-        location: match[1].trim(),
-        state: match[2].trim(),
-        date: match[3].trim(),
-        facility: match[4].trim(),
-        source: match[5].trim(),
-        url: match[6]?.trim() || "",
-        isNew: true,
-      });
-    }
-  }
-  return fires;
-}
-
-// Returns [x%, y%] with slight jitter to separate overlapping dots in the same state.
 function getCoords(state, index) {
   const base = US_STATES_COORDS[state];
   if (!base) return null;
-  const jitter  = Math.sin(index * 137.5) * 1.2;
+  const jitter = Math.sin(index * 137.5) * 1.2;
   const jitter2 = Math.cos(index * 137.5) * 1.2;
   return [base[0] + jitter, base[1] + jitter2];
 }
 
-
 export default function FireTracker() {
   const [fires, setFires] = useState([]);
+  const [view, setView] = useState("map"); // "map", "report", or "admin"
   const [status, setStatus] = useState("idle");
-  const [lastScan, setLastScan] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [hoveredFire, setHoveredFire] = useState(null);
   const [highlightedFire, setHighlightedFire] = useState(null);
+  const [hoveredFire, setHoveredFire] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
-  const firesRef = useRef(fires);
-  firesRef.current = fires;
-  const autoScansRemaining = useRef(2);
+  const [adminPassword, setAdminPassword] = useState("");
 
+  // Handle Mobile Detection
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
@@ -75,400 +47,203 @@ export default function FireTracker() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const scan = useCallback(async () => {
-    setStatus("scanning");
-    setErrorMsg(null);
+  // Fetch approved fires for the map
+  const fetchApprovedFires = useCallback(async () => {
+    setStatus("loading");
     try {
-      const existingLocations = firesRef.current.map((f) => `${f.location}, ${f.state}`);
+      const res = await fetch("/api/scan"); 
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setFires(data.incidents.filter(incident => incident.status === 'approved') || []);
+      setStatus("idle");
+    } catch (e) {
+      setErrorMsg(e.message);
+      setStatus("error");
+    }
+  }, []);
+
+  useEffect(() => { fetchApprovedFires(); }, [fetchApprovedFires]);
+
+  // Submission Handler (Public or Admin)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const payload = Object.fromEntries(formData.entries());
+    
+    // Extract state from location string "City, ST" if needed
+    const stateMatch = payload.location.match(/,\s*([A-Z]{2})$/);
+    if (stateMatch) payload.state = stateMatch[1];
+
+    setStatus("saving");
+    try {
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ existingLocations }),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unknown server error");
-
-      const { text, articleCount } = data;
-      if (articleCount === 0) {
-        setErrorMsg("GDELT returned 0 articles — try again shortly");
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "Save failed");
       }
-      if (text && text !== "NO_NEW_FIRES") {
-        const newFires = parseFiresFromText(text);
-        if (newFires.length > 0) {
-          setFires((prev) => {
-            const newFiresByKey = new Map(newFires.map((f) => [`${f.location}-${f.state}-${f.date}`, f]));
-            const existingKeys = new Set(prev.map((f) => `${f.location}-${f.state}-${f.date}`));
-            const unique = newFires.filter(
-              (f) => !existingKeys.has(`${f.location}-${f.state}-${f.date}`)
-            );
-            const merged = [
-              ...unique,
-              ...prev.map((f) => {
-                const match = newFiresByKey.get(`${f.location}-${f.state}-${f.date}`);
-                return { ...f, isNew: false, url: f.url || match?.url || "" };
-              }),
-            ];
-            return merged.sort((a, b) => b.date.localeCompare(a.date));
-          });
-        }
-      }
-      setLastScan(new Date());
-      setStatus("idle");
+      alert("Thank you! Submission sent for review.");
+      setView("map");
+      fetchApprovedFires();
     } catch (e) {
-      setStatus("error");
-      setErrorMsg(e.message);
+      alert(e.message);
+    } finally {
+      setStatus("idle");
     }
-  }, []);
-
-  useEffect(() => {
-    scan();
-  }, []); // eslint-disable-line
-
-  // After each scan completes, automatically run up to 2 more scans on initial load.
-  // Google News RSS doesn't return all relevant articles in a single request — subsequent
-  // fetches return a different mix, surfacing fires that the first pass missed.
-  // Each additional scan passes already-found fires as exclusions so Claude only returns new ones.
-  useEffect(() => {
-    if (status === "idle" && lastScan !== null && autoScansRemaining.current > 0) {
-      autoScansRemaining.current -= 1;
-      scan();
-    }
-  }, [status, lastScan, scan]);
-
-
-  // Restore saved incidents after mount — must use useEffect, not useState initializer,
-  // because localStorage is unavailable during Next.js SSR and React reuses server state.
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("firetracker-incidents");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setFires(parsed.sort((a, b) => b.date.localeCompare(a.date)));
-        }
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    try { localStorage.setItem("firetracker-incidents", JSON.stringify(fires)); } catch {}
-  }, [fires]);
-
-  const firesWithCoords = fires.map((f, i) => ({
-    ...f,
-    coords: getCoords(f.state, i),
-  }));
+  };
 
   return (
     <div style={{
-      minHeight: "100vh",
-      height: isMobile ? "auto" : "100vh",
-      overflow: isMobile ? "auto" : "hidden",
-      background: "#0a0a0f",
-      color: "#e8e0d5",
-      fontFamily: "'DM Mono', 'Courier New', monospace",
-      display: "flex",
-      flexDirection: "column",
+      minHeight: "100vh", height: isMobile ? "auto" : "100vh",
+      overflow: isMobile ? "auto" : "hidden", background: "#0a0a0f",
+      color: "#e8e0d5", fontFamily: "'DM Mono', monospace",
+      display: "flex", flexDirection: "column",
     }}>
 
       {/* Header */}
-      <div style={{
-        borderBottom: "1px solid #2a1a0f",
-        padding: isMobile ? "14px 16px" : "20px 32px",
-        display: "flex",
-        alignItems: isMobile ? "flex-start" : "center",
-        justifyContent: "space-between",
-        flexDirection: isMobile ? "column" : "row",
-        gap: isMobile ? 10 : 0,
+      <header style={{
+        borderBottom: "1px solid #2a1a0f", padding: isMobile ? "14px 16px" : "20px 32px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
         background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
-        flexShrink: 0,
-        backdropFilter: "blur(8px)",
       }}>
-        <div>
-          <div className="header-title" style={{
-            fontFamily: "'Bebas Neue',sans-serif",
-            fontSize: "clamp(22px,4vw,38px)",
-            letterSpacing: "0.12em",
-            color: "#ff4500",
-            lineHeight: 1,
-          }}>
+        <div onClick={() => setView("map")} style={{ cursor: "pointer" }}>
+          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(20px,4vw,32px)", color: "#ff4500", letterSpacing: "0.1em" }}>
             🔥 US WAREHOUSE FIRE TRACKER
           </div>
-          <div style={{ fontSize: "10px", color: "#a07868", letterSpacing: "0.2em", marginTop: 4 }}>
-            WAREHOUSE, FACTORY & INDUSTRIAL FACILITY INCIDENTS · NATIONWIDE
-          </div>
+          <div style={{ fontSize: "9px", color: "#a07868", letterSpacing: "0.2em" }}>CROWDSOURCED INDUSTRIAL INCIDENT MAP</div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: isMobile ? "flex-start" : "flex-end", gap: 6, width: isMobile ? "100%" : "auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 11, color: "#c09070", width: isMobile ? "100%" : "auto", justifyContent: isMobile ? "space-between" : "flex-end" }}>
-            <div style={{
-              background: "#1a0a05", border: "1px solid #2a1505", borderRadius: 4,
-              padding: "6px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-            }}>
-              <div style={{ color: "#ff4500", fontFamily: "'Bebas Neue'", fontSize: 28, lineHeight: 1 }}>
-                {fires.length}
-              </div>
-              <div style={{ fontSize: 9, letterSpacing: "0.15em", color: "#aa7050" }}>INCIDENTS</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              {status === "scanning" ? (
-                <div style={{ color: "#ff8c00", display: "flex", alignItems: "center", gap: 6 }}>
-                  <span className="spin-icon">◌</span> SCANNING NEWS...
-                </div>
-              ) : status === "error" ? (
-                <div style={{ color: "#ff3333" }}>⚠ SCAN ERROR</div>
-              ) : (
-                <div style={{ color: "#6ab86a" }}>● LIVE</div>
-              )}
-              {lastScan && (
-                <div style={{ fontSize: 9, marginTop: 3, color: "#9a6a45" }}>
-                  LAST: {lastScan.toLocaleTimeString()}
-                </div>
-              )}
-              <button onClick={scan} disabled={status === "scanning"} style={{
-                marginTop: 6, background: "transparent", border: "1px solid #2a1505",
-                color: status === "scanning" ? "#7a5535" : "#ff6a00",
-                padding: "3px 10px", fontSize: 9, letterSpacing: "0.1em",
-                cursor: status === "scanning" ? "not-allowed" : "pointer",
-                borderRadius: 2, display: "block", width: "100%",
-              }}>
-                {status === "scanning" ? "SCANNING..." : "↺ SCAN NOW"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {errorMsg && (
-        <div style={{
-          background: "#1a0505", borderBottom: "1px solid #3a0505",
-          padding: "8px 32px", fontSize: 11, color: "#ff5555",
-        }}>
-          ⚠ {errorMsg}
-        </div>
-      )}
-
-      <div style={{ display: "flex", flex: isMobile ? "none" : 1, minHeight: 0, overflow: isMobile ? "visible" : "hidden", flexDirection: isMobile ? "column" : "row" }}>
-        {/* Map */}
-        <div style={{
-          flex: isMobile ? "none" : "0 0 55%",
-          borderRight: isMobile ? "none" : "1px solid #1a0f08",
-          borderBottom: isMobile ? "1px solid #1a0f08" : "none",
-          position: "relative", overflow: "hidden", background: "#05080f",
-        }}>
-          {status === "scanning" && (
-            <div style={{ position: "absolute", inset: 0, zIndex: 10, pointerEvents: "none", overflow: "hidden" }}>
-              <div style={{
-                position: "absolute", left: 0, right: 0, height: 2,
-                background: "linear-gradient(90deg,transparent,#ff450055,#ff4500,#ff450055,transparent)",
-                animation: "scan-line 2s linear infinite",
-              }} />
-              <div style={{
-                position: "absolute", inset: 0,
-                background: "repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(255,69,0,0.02) 3px,rgba(255,69,0,0.02) 4px)",
-              }} />
-            </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => setView(view === "report" ? "map" : "report")} style={navBtnStyle}>
+            {view === "report" ? "✕ CLOSE" : "✚ REPORT FIRE"}
+          </button>
+          {!isMobile && (
+             <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
           )}
-          <div style={{ padding: 16, position: "relative" }}>
-            <div style={{ fontSize: 9, letterSpacing: "0.2em", color: "#7a5a48", marginBottom: 8 }}>
-              INCIDENT MAP · UNITED STATES
-            </div>
-            <USMap
-              fires={firesWithCoords}
-              hoveredFire={hoveredFire}
-              setHoveredFire={setHoveredFire}
-              highlightedFire={highlightedFire}
-              isMobile={isMobile}
-            />
-          </div>
         </div>
+      </header>
 
-        {/* Log */}
-        <div style={{ flex: isMobile ? "none" : "0 0 45%", overflowY: isMobile ? "visible" : "auto", overflowX: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <div style={{
-            padding: "12px 20px", borderBottom: "1px solid #2a1a10", fontSize: 9,
-            letterSpacing: "0.2em", color: "#8a6a55", position: "sticky", top: 0,
-            background: "#0a0a0f", zIndex: 5, display: "flex", justifyContent: "space-between",
-          }}>
-            <span>INCIDENT LOG</span><span>{fires.length} TOTAL</span>
+      {/* Main Content Area */}
+      <main style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: "hidden" }}>
+        
+        {view === "map" ? (
+          <>
+            {/* Map Column */}
+            <div style={{ flex: isMobile ? "none" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
+               <USMap 
+                fires={fires.map((f, i) => ({ ...f, coords: getCoords(f.location.split(', ')[1], i) }))} 
+                hoveredFire={hoveredFire} setHoveredFire={setHoveredFire}
+                highlightedFire={highlightedFire} isMobile={isMobile} 
+               />
+            </div>
+
+            {/* Log Column */}
+            <div style={{ flex: isMobile ? "none" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
+              <div style={{ padding: 15, fontSize: 10, color: "#8a6a55", borderBottom: "1px solid #1a1a1f" }}>INCIDENT LOG ({fires.length})</div>
+              {fires.map((fire, i) => (
+                <div 
+                  key={fire.id} 
+                  onMouseEnter={() => setHighlightedFire(fire)}
+                  onMouseLeave={() => setHighlightedFire(null)}
+                  style={{ 
+                    padding: "15px 20px", borderBottom: "1px solid #120d09", 
+                    background: highlightedFire?.id === fire.id ? "#1a0a05" : "transparent"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                    <span style={{ color: FIRE_COLORS[i % 5], fontWeight: "bold" }}>{fire.location}</span>
+                    <span style={{ color: "#777" }}>{fire.date_occurred}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#d4b090", marginTop: 4 }}>{fire.facility_type}</div>
+                  <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>{fire.title}</div>
+                  {fire.url && <a href={fire.url} target="_blank" style={{ fontSize: 9, color: "#ff6a00", textDecoration: "none" }}>→ View Source</a>}
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "40px 20px", overflowY: "auto" }}>
+            <div style={{ width: "100%", maxWidth: 500, background: "#121217", padding: 30, borderRadius: 8, border: "1px solid #222" }}>
+               <h2 style={{ color: "#ff4500", marginBottom: 20 }}>Report an Incident</h2>
+               <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
+                  <input name="title" placeholder="Short Headline (e.g. 3-Alarm Factory Fire)" required style={inputStyle} />
+                  <input name="location" placeholder="City, ST (e.g. Dallas, TX)" required style={inputStyle} />
+                  <input name="facility_type" placeholder="Type (e.g. Logistics Center)" style={inputStyle} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    <label style={{ fontSize: 10, color: "#666" }}>Date of Incident</label>
+                    <input name="date_occurred" type="date" required style={inputStyle} />
+                  </div>
+                  <input name="url" placeholder="News Article URL" style={inputStyle} />
+                  
+                  <button type="submit" disabled={status === "saving"} style={{ ...navBtnStyle, padding: 15, background: "#ff4500", color: "white" }}>
+                    {status === "saving" ? "PROCESSING..." : "SUBMIT FOR REVIEW"}
+                  </button>
+                  <button type="button" onClick={() => setView("map")} style={{ background: "none", border: "none", color: "#666", fontSize: 11, cursor: "pointer" }}>Cancel</button>
+               </form>
+            </div>
           </div>
+        )}
+      </main>
 
-          {fires.length === 0 && status === "idle" && (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "#8a6a55", fontSize: 12 }}>
-              No incidents found yet.
-            </div>
-          )}
-          {fires.length === 0 && status === "scanning" && (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "#c07840", fontSize: 12 }}>
-              <div className="spin-icon" style={{ fontSize: 24, display: "block", marginBottom: 12 }}>◌</div>
-              Searching news for warehouse fire reports...
-            </div>
-          )}
-
-          {fires.map((fire, i) => (
-            <div
-              key={fire.id}
-              className={`fire-row${fire.isNew ? " fire-row-new" : ""}`}
-              style={{
-                padding: "12px 20px", borderBottom: "1px solid #120d09",
-                borderLeft: fire.isNew ? "2px solid #ff4500" : "2px solid #1e1410",
-                transition: "background 0.2s",
-                background: highlightedFire?.id === fire.id ? "rgba(255,69,0,0.06)" : "transparent",
-              }}
-              onMouseEnter={() => setHighlightedFire(fire)}
-              onMouseLeave={() => setHighlightedFire(null)}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{
-                    width: 8, height: 8, borderRadius: "50%",
-                    background: FIRE_COLORS[i % FIRE_COLORS.length],
-                    display: "inline-block", flexShrink: 0,
-                  }} />
-                  <span style={{ fontWeight: 500, color: "#d4b090", fontSize: 12 }}>
-                    {fire.location}, {fire.state}
-                  </span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0, marginLeft: 8 }}>
-                  <span style={{ fontSize: 10, color: "#9a7050" }}>{fire.date}</span>
-                  {fire.url && (
-                    <a
-                      href={fire.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: 9, color: "#c07040", textDecoration: "underline", letterSpacing: "0.05em" }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      View Article
-                    </a>
-                  )}
-                </div>
-              </div>
-              <div style={{ fontSize: 11, color: "#b08060", marginLeft: 16, marginBottom: 2 }}>{fire.facility}</div>
-              <div style={{ fontSize: 10, color: "#8a6848", marginLeft: 16, lineHeight: 1.4 }}>{fire.source}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{
-        borderTop: "1px solid #2a1a10", padding: isMobile ? "8px 16px" : "8px 32px", fontSize: 9, color: "#7a5a48",
-        display: "flex", justifyContent: "space-between", letterSpacing: "0.1em",
-      }}>
-        <span>DATA SOURCED VIA GOOGLE NEWS · NOT OFFICIAL EMERGENCY SERVICES DATA</span>
-        {!isMobile && <span>MANUAL SCAN · CLICK ↺ SCAN NOW TO REFRESH</span>}
-      </div>
+      {/* Footer / Hidden Admin Entry */}
+      <footer style={{ padding: 10, textAlign: "center", fontSize: 9, color: "#333", borderTop: "1px solid #111" }}>
+        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER · 
+        <span onClick={() => window.location.href = "/admin"} style={{ cursor: "pointer" }}> ADMIN LOGIN</span>
+      </footer>
     </div>
   );
 }
 
+// --- SUB-COMPONENTS ---
 
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }) {
   return (
-    <div style={{
-      position: "relative", width: "100%", borderRadius: 4,
-      background: "radial-gradient(ellipse 80% 60% at 50% 55%, #1a0e05 0%, #0a0800 60%, transparent 100%)",
-      boxShadow: "inset 0 0 60px 10px #0a0800",
-    }}>
-      {/* Real US map SVG from simplemaps / wikimedia public domain */}
-      <img
-        src="/us-map.svg"
-        alt="US Map"
-        style={{
-          width: "100%",
-          display: "block",
-          filter: "invert(1) sepia(1) saturate(0.3) hue-rotate(180deg) brightness(0.35)",
-          borderRadius: 4,
-          mixBlendMode: "screen",
-        }}
-      />
-
-      {/* Fire dots overlaid as absolutely positioned elements */}
+    <div style={{ position: "relative", width: "100%" }}>
+      <img src="/us-map.svg" alt="US Map" style={{ width: "100%", opacity: 0.2, filter: "invert(1)" }} />
       {fires.map((fire, i) => {
-        if (!fire.coords || fire.state === "AK" || fire.state === "HI") return null;
-        const [px, py] = fire.coords;
-        if (px < 0 || px > 100 || py < 0 || py > 100) return null;
-        const isHighlighted = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
-        const color = FIRE_COLORS[i % FIRE_COLORS.length];
-        const baseSize = isMobile ? 13 : 10;
-        const size = isHighlighted ? baseSize + 6 : baseSize;
-
-        const flipLeft = px > 65;
-        const flipDown = py < 18;
+        if (!fire.coords) return null;
+        const [x, y] = fire.coords;
+        const active = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
         return (
-          <div
-            key={fire.id}
+          <div key={fire.id}
             onMouseEnter={() => setHoveredFire(fire)}
             onMouseLeave={() => setHoveredFire(null)}
-            onPointerEnter={() => setHoveredFire(fire)}
-            onPointerLeave={() => setHoveredFire(null)}
             style={{
-              position: "absolute",
-              left: `${px}%`,
-              top: `${py}%`,
-              transform: "translate(-50%, -50%)",
-              width: size,
-              height: size,
-              borderRadius: "50%",
-              background: color,
-              boxShadow: isHighlighted
-                ? `0 0 0 3px ${color}44, 0 0 12px ${color}`
-                : `0 0 0 2px ${color}33, 0 0 6px ${color}88`,
-              cursor: "pointer",
-              zIndex: isHighlighted ? 10 : 2,
-              transition: "all 0.15s ease",
-              animation: fire.isNew ? "pulse-dot 1s ease-in-out 3" : "none",
+              position: "absolute", left: `${x}%`, top: `${y}%`,
+              width: active ? 12 : 8, height: active ? 12 : 8,
+              background: FIRE_COLORS[i % 5], borderRadius: "50%",
+              transform: "translate(-50%, -50%)", cursor: "pointer",
+              boxShadow: active ? `0 0 15px ${FIRE_COLORS[i % 5]}` : "none",
+              zIndex: active ? 100 : 1, transition: "all 0.2s"
             }}
           >
-            {/* White center dot */}
-            <div style={{
-              position: "absolute",
-              inset: 0,
-              margin: "auto",
-              width: "35%",
-              height: "35%",
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.7)",
-            }} />
-            {/* Floating tooltip */}
-            {isHighlighted && (
+            {active && (
               <div style={{
-                position: "absolute",
-                left: flipLeft ? "auto" : "calc(50% + 10px)",
-                right: flipLeft ? "calc(50% + 10px)" : "auto",
-                top: flipDown ? "calc(100% + 8px)" : "auto",
-                bottom: flipDown ? "auto" : "calc(100% + 8px)",
-                transform: "none",
-                background: "#0f0805f0",
-                border: "1px solid #3a1a0a",
-                borderLeft: "2px solid #ff4500",
-                padding: "6px 10px",
-                borderRadius: 3,
-                fontSize: 10,
-                whiteSpace: "nowrap",
-                pointerEvents: "none",
-                zIndex: 30,
-                backdropFilter: "blur(4px)",
+                position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
+                background: "#000", padding: "4px 8px", borderRadius: 4, fontSize: 9, whiteSpace: "nowrap",
+                border: "1px solid #333", marginBottom: 5
               }}>
-                <div style={{ color: "#ff6a00", fontWeight: 500 }}>{fire.location}, {fire.state}</div>
-                <div style={{ color: "#9a7060", marginTop: 2 }}>{fire.facility}</div>
+                {fire.location}
               </div>
             )}
           </div>
         );
       })}
-
-      {/* Legend */}
-      <div style={{
-        position: "absolute", top: 8, left: 8,
-        background: "#08080fee", border: "1px solid #1a1a2a",
-        borderRadius: 3, padding: "5px 10px",
-        display: "flex", alignItems: "center", gap: 6,
-        fontSize: 9, color: "#8a5030", letterSpacing: "0.1em",
-        fontFamily: "'DM Mono', monospace",
-      }}>
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ff4500" }} />
-        FIRE INCIDENT
-      </div>
     </div>
   );
 }
+
+// --- STYLES ---
+const navBtnStyle = {
+  background: "#1a1a1f", border: "1px solid #333", color: "#ff6a00",
+  padding: "6px 12px", fontSize: 10, cursor: "pointer", borderRadius: 4,
+  fontFamily: "inherit"
+};
+
+const inputStyle = {
+  padding: "12px", background: "#0a0a0f", border: "1px solid #333",
+  color: "white", borderRadius: 4, fontSize: 13, fontFamily: "inherit"
+};
