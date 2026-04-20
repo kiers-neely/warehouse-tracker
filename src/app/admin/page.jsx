@@ -38,7 +38,10 @@ export default function ModerationPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Action failed");
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "Action failed");
+      }
       
       alert(`Incident ${actionType === "approve" ? "Approved" : "Deleted"}`);
       fetchPending(); // Refresh list
