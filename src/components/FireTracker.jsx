@@ -110,16 +110,16 @@ export default function FireTracker() {
         background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
       }}>
         <div onClick={() => setView("map")} style={{ cursor: "pointer" }}>
-          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(20px,4vw,32px)", color: "#ff4500", letterSpacing: "0.1em" }}>
+          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(20px,4vw,44px)", color: "#ff4500", letterSpacing: "0.1em" }}>
             🔥 US WAREHOUSE FIRE TRACKER
           </div>
           <div style={{ fontSize: "9px", color: "#a07868", letterSpacing: "0.2em" }}>CROWDSOURCED INDUSTRIAL INCIDENT MAP</div>
         </div>
 
         <div style={{ display: "flex", gap: 15, alignItems: "center" }}>
-          <div style={{ background: "#1a0a05", border: "2px solid #ff4500", borderRadius: 6, padding: "8px 16px", textAlign: "center" }}>
+          <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "8px 16px", textAlign: "center" }}>
             <div style={{ fontSize: 10, color: "#8a6a55", letterSpacing: "0.1em", marginBottom: 4 }}>FIRES TRACKED</div>
-            <div style={{ fontSize: "clamp(18px, 4vw, 28px)", color: "#ff4500", fontWeight: "bold", fontFamily: "'Bebas Neue',sans-serif" }}>{fires.length}</div>
+            <div style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif" }}>{fires.length}</div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => setView(view === "report" ? "map" : "report")} style={navBtnStyle}>
@@ -205,7 +205,7 @@ export default function FireTracker() {
 
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }) {
   return (
-    <div style={{ position: "relative", width: "100%", background: "radial-gradient(circle, rgba(255, 69, 0, 0.08) 0%, rgba(255, 107, 0, 0.03) 40%, transparent 100%)" }}>
+    <div style={{ position: "relative", width: "100%", background: "radial-gradient(circle, rgba(255, 69, 0, 0.08) 0%, rgba(255, 107, 0, 0.03) 40%, transparent 50%)" }}>
       <style>{`
         @keyframes scanBeam {
           0% { left: -5%; opacity: 0; }
@@ -233,7 +233,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
         }
       `}</style>
       <div className="scan-beam"></div>
-      <img src="/us-map.svg" alt="US Map" style={{ width: "100%", opacity: 0.2, filter: "invert(1)" }} />
+      <img src="/us-map.svg" alt="US Map" style={{ width: "100%", opacity: 0.3, filter: "invert(1)" }} />
       {fires.map((fire, i) => {
         if (!fire.coords) return null;
         const [x, y] = fire.coords;
