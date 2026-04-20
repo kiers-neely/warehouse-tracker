@@ -21,6 +21,21 @@ const US_STATES_COORDS = {
 
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
 
+// Albers Equal Area Conic projection calibrated to the 959×593 SVG.
+// Parameters: parallels 29.5°/45.5°N, central meridian 96°W, ref lat 37.5°N.
+// Linear scale/offset derived by least-squares fit against known state centroids.
+function latLngToSVG(lat, lng) {
+  const n = 0.6029, C = 1.3516, rho0 = 1.3031;
+  const phi = lat * Math.PI / 180;
+  const theta = n * (lng + 96) * Math.PI / 180;
+  const rho = Math.sqrt(Math.max(0, C - 2 * n * Math.sin(phi))) / n;
+  return [
+    134 * rho * Math.sin(theta) + 50.5,
+    -205 * (rho0 - rho * Math.cos(theta)) + 54.8,
+  ];
+}
+
+// State-center fallback with jitter to separate stacked dots.
 function getCoords(state, index) {
   const base = US_STATES_COORDS[state];
   if (!base) return null;
@@ -38,6 +53,50 @@ export default function FireTracker() {
   const [hoveredFire, setHoveredFire] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
+  const geoCacheRef = useRef({});
+
+  // Load persisted geocode cache from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("fire-geo-cache");
+      if (raw) geoCacheRef.current = JSON.parse(raw);
+    } catch {}
+  }, []);
+
+  // Geocode any fires that don't have a cached city-level position yet.
+  // Runs sequentially with 1.1s gaps to respect Nominatim's 1 req/s policy.
+  // Dots start at the state center and move to the accurate position once resolved.
+  useEffect(() => {
+    if (fires.length === 0) return;
+    const toGeocode = fires
+      .map(f => {
+        const city = f.location?.replace(/,\s*[A-Z]{2}$/, "").trim();
+        const state = f.state;
+        return { city, state, key: `${city}|${state}` };
+      })
+      .filter(({ city, state, key }) => city && state && !geoCacheRef.current[key]);
+
+    if (toGeocode.length === 0) return;
+
+    (async () => {
+      for (let i = 0; i < toGeocode.length; i++) {
+        const { city, state, key } = toGeocode[i];
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city + ", " + state + ", USA")}&format=json&limit=1`,
+            { headers: { "User-Agent": "fire-tracker/1.0" }, signal: AbortSignal.timeout(8000) }
+          );
+          const data = await res.json();
+          if (data[0]) {
+            geoCacheRef.current[key] = latLngToSVG(+data[0].lat, +data[0].lon);
+            try { localStorage.setItem("fire-geo-cache", JSON.stringify(geoCacheRef.current)); } catch {}
+            setFires(prev => [...prev]); // trigger re-render with new position
+          }
+        } catch {}
+        if (i < toGeocode.length - 1) await new Promise(r => setTimeout(r, 1100));
+      }
+    })();
+  }, [fires.length]); // re-run only when the number of fires changes
 
   // Handle Mobile Detection
   useEffect(() => {
@@ -181,9 +240,15 @@ export default function FireTracker() {
             <div style={{ flex: isMobile ? "0 0 300px" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
                <USMap
                 fires={fires.map((f, i) => {
-                  // Prefer the dedicated state column; fall back to parsing from location string
                   const state = f.state || (f.location?.match(/,\s*([A-Z]{2})$/)?.[1] ?? null);
-                  return { ...f, state, coords: getCoords(state, i) };
+                  const city = f.location?.replace(/,\s*[A-Z]{2}$/, "").trim();
+                  const geoKey = `${city}|${state}`;
+                  const geoCoords = geoCacheRef.current[geoKey];
+                  // Use accurate geocoded city position when available; jitter only for same-city overlaps
+                  const coords = geoCoords
+                    ? [geoCoords[0] + Math.sin(i * 137.5) * 0.5, geoCoords[1] + Math.cos(i * 137.5) * 0.5]
+                    : getCoords(state, i);
+                  return { ...f, state, coords };
                 })}
                 hoveredFire={hoveredFire} setHoveredFire={setHoveredFire}
                 highlightedFire={highlightedFire} isMobile={isMobile}
