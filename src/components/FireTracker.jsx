@@ -202,6 +202,26 @@ export default function FireTracker() {
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }) {
   return (
     <div style={{ position: "relative", width: "100%", background: "radial-gradient(circle, rgba(255, 69, 0, 0.08) 0%, rgba(255, 107, 0, 0.03) 40%, transparent 100%)" }}>
+      <style>{`
+        @keyframes scanBeam {
+          0% { left: -5%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { left: 105%; opacity: 0; }
+        }
+        .scan-beam {
+          position: absolute;
+          top: 0;
+          width: 2px;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 107, 0, 0.6), transparent);
+          box-shadow: 0 0 20px rgba(255, 107, 0, 0.4);
+          animation: scanBeam 6s ease-in-out infinite;
+          pointer-events: none;
+          z-index: 0;
+        }
+      `}</style>
+      <div className="scan-beam"></div>
       <img src="/us-map.svg" alt="US Map" style={{ width: "100%", opacity: 0.2, filter: "invert(1)" }} />
       {fires.map((fire, i) => {
         if (!fire.coords) return null;
