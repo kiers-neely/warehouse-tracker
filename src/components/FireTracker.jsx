@@ -104,30 +104,60 @@ export default function FireTracker() {
     }}>
 
       {/* Header */}
-      <header style={{
-        borderBottom: "1px solid #2a1a0f", padding: isMobile ? "14px 16px" : "20px 32px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
-      }}>
-        <div onClick={() => setView("map")} style={{ cursor: "pointer" }}>
+      <header
+        style={
+          isMobile
+            ? {
+                borderBottom: "1px solid #2a1a0f",
+                padding: "14px 8px 10px 8px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "stretch",
+                background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
+                gap: 8,
+              }
+            : {
+                borderBottom: "1px solid #2a1a0f",
+                padding: "20px 32px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
+              }
+        }
+      >
+        <div onClick={() => setView("map")} style={{ cursor: "pointer", marginBottom: isMobile ? 8 : 0 }}>
           <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(20px,4vw,44px)", color: "#ff4500", letterSpacing: "0.1em" }}>
             🔥 US WAREHOUSE FIRE TRACKER
           </div>
           <div style={{ fontSize: "9px", color: "#a07868", letterSpacing: "0.2em" }}>CROWDSOURCED INDUSTRIAL INCIDENT MAP</div>
         </div>
 
-        <div style={{ display: "flex", gap: 15, alignItems: "center" }}>
-          <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
-            <span style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
+        {isMobile ? (
+          <div style={{ display: "flex", flexDirection: "row", gap: 8, marginBottom: 8 }}>
             <button onClick={() => setView(view === "report" ? "map" : "report")} style={navBtnStyle}>
               {view === "report" ? "✕ CLOSE" : "✚ REPORT FIRE"}
             </button>
             <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
+            <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED</span>
+              <span style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ display: "flex", gap: 15, alignItems: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={() => setView(view === "report" ? "map" : "report")} style={navBtnStyle}>
+                {view === "report" ? "✕ CLOSE" : "✚ REPORT FIRE"}
+              </button>
+              <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
+            </div>
+            <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED</span>
+              <span style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area */}
