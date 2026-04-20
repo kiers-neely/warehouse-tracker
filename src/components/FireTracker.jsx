@@ -210,8 +210,8 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
           100% { left: 105%; opacity: 0; }
         }
         @keyframes breathe {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); }
-          50% { transform: translate(-50%, -50%) scale(1.4); }
+          0%, 100% { box-shadow: 0 0 0px rgba(255, 107, 0, 0), inset 0 0 0px rgba(255, 107, 0, 0); }
+          50% { box-shadow: 0 0 8px rgba(255, 107, 0, 0.4), inset 0 0 4px rgba(255, 107, 0, 0.2); }
         }
         .scan-beam {
           position: absolute;
@@ -225,7 +225,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
           z-index: 0;
         }
         .fire-marker-breathing {
-          animation: breathe 0.8s ease-in-out !important;
+          animation: breathe 0.8s ease-in-out infinite;
         }
       `}</style>
       <div className="scan-beam"></div>
@@ -234,9 +234,6 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
         if (!fire.coords) return null;
         const [x, y] = fire.coords;
         const active = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
-        // Calculate animation delay so breathing happens when beam passes over this fire
-        const beamReachTime = ((x + 5) / 110) * 6;
-        const animationDelay = -(beamReachTime - 0.4);
         return (
           <div key={fire.id}
             onMouseEnter={() => setHoveredFire(fire)}
@@ -248,9 +245,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
               background: FIRE_COLORS[i % 5], borderRadius: "50%",
               transform: "translate(-50%, -50%)", cursor: "pointer",
               boxShadow: active ? `0 0 15px ${FIRE_COLORS[i % 5]}` : "none",
-              zIndex: active ? 100 : 1, transition: "all 0.2s",
-              animationDelay: `${animationDelay}s`,
-              animationIterationCount: "infinite"
+              zIndex: active ? 100 : 1, transition: "all 0.2s"
             }}
           >
             {active && (
