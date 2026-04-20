@@ -120,9 +120,7 @@ export default function FireTracker() {
           <button onClick={() => setView(view === "report" ? "map" : "report")} style={navBtnStyle}>
             {view === "report" ? "✕ CLOSE" : "✚ REPORT FIRE"}
           </button>
-          {!isMobile && (
-             <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
-          )}
+          <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
         </div>
       </header>
 
@@ -132,7 +130,7 @@ export default function FireTracker() {
         {view === "map" ? (
           <>
             {/* Map Column */}
-            <div style={{ flex: isMobile ? "none" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
+            <div style={{ flex: isMobile ? "0 0 300px" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
                <USMap 
                 fires={fires.map((f, i) => ({ ...f, coords: getCoords(f.location.split(', ')[1], i) }))} 
                 hoveredFire={hoveredFire} setHoveredFire={setHoveredFire}
@@ -141,7 +139,7 @@ export default function FireTracker() {
             </div>
 
             {/* Log Column */}
-            <div style={{ flex: isMobile ? "none" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
+            <div style={{ flex: isMobile ? "1" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
               <div style={{ padding: 15, fontSize: 10, color: "#8a6a55", borderBottom: "1px solid #1a1a1f" }}>INCIDENT LOG ({fires.length})</div>
               {fires.map((fire, i) => (
                 <div 
