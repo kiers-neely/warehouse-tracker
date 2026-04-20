@@ -201,7 +201,7 @@ export default function FireTracker() {
 
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }) {
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div style={{ position: "relative", width: "100%", background: "radial-gradient(circle, rgba(255, 69, 0, 0.08) 0%, rgba(255, 107, 0, 0.03) 40%, transparent 100%)" }}>
       <img src="/us-map.svg" alt="US Map" style={{ width: "100%", opacity: 0.2, filter: "invert(1)" }} />
       {fires.map((fire, i) => {
         if (!fire.coords) return null;
