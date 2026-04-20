@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -24,8 +25,8 @@ const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
 function getCoords(state, index) {
   const base = US_STATES_COORDS[state];
   if (!base) return [50, 50];
-  const jitterX = Math.sin(index * 137.5) * 1.5;
-  const jitterY = Math.cos(index * 137.5) * 1.5;
+  const jitterX = Math.sin(index * 137.5) * 2.2; // Slightly more jitter for better separation
+  const jitterY = Math.cos(index * 137.5) * 2.2;
   return [base[0] + jitterX, base[1] + jitterY];
 }
 
@@ -48,7 +49,7 @@ export default function FireTracker() {
     setStatus("loading");
     try {
       const res = await fetch("/api/scan");
-      if (!res.ok) throw new Error("API unavailable");
+      if (!res.ok) throw new Error("API Offline");
       const data = await res.json();
       setFires(data.incidents || []);
       setStatus("idle");
@@ -72,7 +73,7 @@ export default function FireTracker() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Submission failed");
-      alert(payload.admin_password ? "Added to map!" : "Sent for approval!");
+      alert(payload.admin_password ? "Entry Authenticated & Added" : "Incident Logged for Review");
       setView("map");
       fetchFires();
     } catch (e) {
@@ -86,20 +87,16 @@ export default function FireTracker() {
     <div style={containerStyle}>
       <header style={headerStyle}>
         <div onClick={() => setView("map")} style={{ cursor: "pointer" }}>
-          <h1 style={{ color: "#ff4500", margin: 0, fontSize: isMobile ? "18px" : "28px", fontFamily: "'Bebas Neue', sans-serif" }}>
-            🔥 US WAREHOUSE FIRE TRACKER
-          </h1>
-          <p style={{ fontSize: "10px", color: "#a07868", margin: 0, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-            CROWDSOURCED INDUSTRIAL INCIDENT MAP
-          </p>
+          <h1 style={titleStyle}>🔥 US WAREHOUSE FIRE TRACKER</h1>
+          <p style={subtitleStyle}>CROWDSOURCED INDUSTRIAL INCIDENT MAP</p>
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "10px" }}>
           <button onClick={() => setView(view === "report" ? "map" : "report")} style={btnStyle}>
             {view === "report" ? "✕ CLOSE" : "✚ REPORT FIRE"}
           </button>
           {!isMobile && (
-            <button onClick={fetchFires} style={btnStyle}>
-              {status === "loading" ? "..." : "↺ REFRESH"}
+            <button onClick={fetchFires} style={secondaryBtnStyle}>
+              {status === "loading" ? "SCANNING..." : "↺ REFRESH"}
             </button>
           )}
         </div>
@@ -108,38 +105,45 @@ export default function FireTracker() {
       <main style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: isMobile ? "auto" : "hidden" }}>
         {view === "map" ? (
           <>
-            <div style={{ flex: 2, padding: "20px", position: "relative", minHeight: "350px" }}>
+            <div style={{ flex: 2, padding: "20px", position: "relative", minHeight: "400px" }}>
               <USMap 
                 fires={fires.map((f, i) => ({ ...f, visualCoords: getCoords(f.location.split(', ')[1], i) }))} 
                 highlightedFire={highlightedFire} 
               />
             </div>
             <div style={sidebarStyle}>
-               <div style={{ padding: "10px 15px", fontSize: "10px", color: "#444", borderBottom: "1px solid #111" }}>
-                 INCIDENT LOG ({fires.length})
+               <div style={sidebarHeaderStyle}>
+                 INCIDENT LOG // {fires.length} ACTIVE RECORDS
                </div>
                {fires.map((f, i) => (
-                 <div key={f.id} onMouseEnter={() => setHighlightedFire(f)} onMouseLeave={() => setHighlightedFire(null)}
-                   style={{ padding: "15px", borderBottom: "1px solid #111", background: highlightedFire?.id === f.id ? "#150a05" : "transparent" }}>
-                   <div style={{ color: FIRE_COLORS[i % 5], fontWeight: "bold", fontSize: "13px" }}>{f.location}</div>
-                   <div style={{ fontSize: "11px", color: "#888", marginTop: "4px" }}>{f.facility_type} — {f.date_occurred}</div>
-                   {f.url && <a href={f.url} target="_blank" style={{ fontSize: "10px", color: "#ff6a00", textDecoration: "none", display: "block", marginTop: "6px" }}>View Source →</a>}
+                 <div key={f.id} 
+                   onMouseEnter={() => setHighlightedFire(f)} 
+                   onMouseLeave={() => setHighlightedFire(null)}
+                   style={{ 
+                     ...logItemStyle, 
+                     background: highlightedFire?.id === f.id ? "rgba(255, 69, 0, 0.1)" : "transparent",
+                     borderColor: highlightedFire?.id === f.id ? "#ff4500" : "#111"
+                   }}>
+                   <div style={{ color: FIRE_COLORS[i % 5], fontWeight: "900", fontSize: "14px", textTransform: "uppercase" }}>{f.location}</div>
+                   <div style={{ fontSize: "11px", color: "#666", marginTop: "2px", fontWeight: "bold" }}>{f.facility_type.toUpperCase()} — {f.date_occurred}</div>
+                   {f.url && <a href={f.url} target="_blank" style={linkStyle}>DATA SOURCE →</a>}
                  </div>
                ))}
             </div>
           </>
         ) : (
-          <div style={{ flex: 1, padding: "40px 20px", display: "flex", justifyContent: "center", overflowY: "auto" }}>
-            <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: "450px", display: "flex", flexDirection: "column", gap: "15px" }}>
-              <h2 style={{ color: "#ff4500" }}>Submit New Incident</h2>
-              <input name="admin_password" type="password" placeholder="Admin Password (Optional)" style={inputStyle} />
-              <input name="title" placeholder="Incident Title" required style={inputStyle} />
-              <input name="location" placeholder="City, ST (e.g. Chicago, IL)" required style={inputStyle} />
-              <input name="facility_type" placeholder="Facility Type" style={inputStyle} />
+          <div style={formWrapperStyle}>
+            <form onSubmit={handleSubmit} style={formStyle}>
+              <h2 style={{ color: "#ff4500", letterSpacing: "2px" }}>REPORT NEW INCIDENT</h2>
+              <input name="admin_password" type="password" placeholder="ADMIN ACCESS KEY (OPTIONAL)" style={inputStyle} />
+              <div style={divider} />
+              <input name="title" placeholder="INCIDENT HEADLINE" required style={inputStyle} />
+              <input name="location" placeholder="CITY, STATE (e.g. Dallas, TX)" required style={inputStyle} />
+              <input name="facility_type" placeholder="FACILITY TYPE" style={inputStyle} />
               <input name="date_occurred" type="date" required style={inputStyle} />
-              <input name="url" placeholder="News Article URL" style={inputStyle} />
-              <button type="submit" disabled={status === "saving"} style={{ ...btnStyle, background: "#ff4500", color: "white", padding: "15px" }}>
-                {status === "saving" ? "SAVING..." : "SUBMIT FOR REVIEW"}
+              <input name="url" placeholder="SOURCE URL" style={inputStyle} />
+              <button type="submit" disabled={status === "saving"} style={submitBtnStyle}>
+                {status === "saving" ? "UPLOADING..." : "TRANSMIT DATA"}
               </button>
             </form>
           </div>
@@ -147,8 +151,8 @@ export default function FireTracker() {
       </main>
 
       <footer style={footerStyle}>
-        <span>&copy; {new Date().getFullYear()} FIRE TRACKER</span>
-        <span onClick={() => window.location.href='/admin'} style={{ cursor: 'pointer', marginLeft: "15px" }}>MODERATION PANEL</span>
+        <span>SYSTEM STATUS: {status === "loading" ? "SYNCING..." : "ONLINE"} // &copy; {new Date().getFullYear()}</span>
+        <span onClick={() => window.location.href='/admin'} style={{ cursor: 'pointer', marginLeft: "20px", opacity: 0.3 }}>[ ADMIN ]</span>
       </footer>
     </div>
   );
@@ -156,21 +160,22 @@ export default function FireTracker() {
 
 function USMap({ fires, highlightedFire }) {
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <img src="/us-map.svg" alt="US Map" style={{ width: "100%", height: "auto", opacity: 0.15, filter: "invert(1)" }} />
+    <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center" }}>
+      <img src="/us-map.svg" alt="US Map" style={{ width: "100%", height: "auto", opacity: 0.25, filter: "invert(1) sepia(1) saturate(5) hue-rotate(-20deg)" }} />
       {fires.map((fire, i) => {
         const [x, y] = fire.visualCoords;
         const isActive = highlightedFire?.id === fire.id;
         return (
           <div key={fire.id} style={{
               position: "absolute", left: `${x}%`, top: `${y}%`,
-              width: isActive ? "12px" : "8px", height: isActive ? "12px" : "8px",
+              width: isActive ? "14px" : "9px", height: isActive ? "14px" : "9px",
               background: FIRE_COLORS[i % 5], borderRadius: "50%",
               transform: "translate(-50%, -50%)", zIndex: isActive ? 10 : 1,
-              boxShadow: isActive ? `0 0 15px ${FIRE_COLORS[i % 5]}` : "none",
-              transition: "all 0.2s"
+              boxShadow: `0 0 ${isActive ? '20px' : '8px'} ${FIRE_COLORS[i % 5]}`,
+              transition: "all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+              border: isActive ? "2px solid white" : "none"
             }}>
-            {isActive && <div style={tooltipStyle}>{fire.location}</div>}
+            {isActive && <div style={tooltipStyle}>{fire.location.toUpperCase()}</div>}
           </div>
         );
       })}
@@ -178,11 +183,57 @@ function USMap({ fires, highlightedFire }) {
   );
 }
 
-// --- STYLES ---
-const containerStyle = { minHeight: "100vh", background: "#0a0a0f", color: "#e8e0d5", display: "flex", flexDirection: "column", fontFamily: "monospace" };
-const headerStyle = { padding: "15px 25px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #1a1a1f" };
-const sidebarStyle = { flex: 1, borderLeft: "1px solid #1a1a1f", overflowY: "auto", background: "#050508" };
-const btnStyle = { background: "#1a1a1f", border: "1px solid #333", color: "#ff6a00", padding: "8px 16px", fontSize: "11px", cursor: "pointer", borderRadius: "4px" };
-const inputStyle = { padding: "12px", background: "#000", border: "1px solid #333", color: "white", borderRadius: "4px", fontSize: "16px", width: "100%" };
-const tooltipStyle = { position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", background: "#000", border: "1px solid #333", padding: "4px 8px", fontSize: "10px", borderRadius: "4px", whiteSpace: "nowrap", marginBottom: "8px" };
-const footerStyle = { padding: "10px", textAlign: "center", fontSize: "10px", color: "#222", borderTop: "1px solid #111" };
+// --- RESTORED STYLES ---
+const containerStyle = { 
+  minHeight: "100vh", 
+  background: "radial-gradient(circle at 50% 50%, #150d0a 0%, #050508 100%)", 
+  color: "#e8e0d5", 
+  display: "flex", 
+  flexDirection: "column", 
+  fontFamily: "'Inter', monospace" 
+};
+
+const headerStyle = { padding: "20px 30px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #ff450033" };
+
+const titleStyle = { 
+  color: "#ff4500", 
+  margin: 0, 
+  fontSize: "32px", 
+  fontFamily: "'Bebas Neue', sans-serif", 
+  letterSpacing: "1px" 
+};
+
+const subtitleStyle = { 
+  fontSize: "11px", 
+  color: "#ff6a00", 
+  margin: 0, 
+  letterSpacing: "0.25em", 
+  fontWeight: "bold",
+  opacity: 0.8 
+};
+
+const sidebarStyle = { flex: 1, borderLeft: "1px solid #222", overflowY: "auto", background: "rgba(0,0,0,0.4)" };
+
+const sidebarHeaderStyle = { padding: "12px 20px", fontSize: "10px", color: "#ff4500", borderBottom: "1px solid #222", letterSpacing: "1px", fontWeight: "bold" };
+
+const logItemStyle = { padding: "18px", borderBottom: "1px solid #111", transition: "all 0.2s", borderLeft: "4px solid transparent" };
+
+const btnStyle = { background: "#ff4500", border: "none", color: "white", padding: "10px 20px", fontSize: "12px", cursor: "pointer", fontWeight: "900", borderRadius: "2px", letterSpacing: "1px" };
+
+const secondaryBtnStyle = { background: "transparent", border: "1px solid #444", color: "#888", padding: "10px 20px", fontSize: "11px", cursor: "pointer", borderRadius: "2px" };
+
+const inputStyle = { padding: "14px", background: "#000", border: "1px solid #333", color: "white", borderRadius: "2px", fontSize: "16px", width: "100%", fontFamily: "monospace" };
+
+const tooltipStyle = { position: "absolute", bottom: "150%", left: "50%", transform: "translateX(-50%)", background: "#ff4500", color: "white", padding: "5px 10px", fontSize: "11px", fontWeight: "bold", borderRadius: "2px", whiteSpace: "nowrap", boxShadow: "0 5px 15px rgba(0,0,0,0.5)" };
+
+const footerStyle = { padding: "15px", textAlign: "center", fontSize: "10px", color: "#444", borderTop: "1px solid #111", letterSpacing: "2px" };
+
+const formWrapperStyle = { flex: 1, padding: "40px", display: "flex", justifyContent: "center", overflowY: "auto" };
+
+const formStyle = { width: "100%", maxWidth: "500px", display: "flex", flexDirection: "column", gap: "18px" };
+
+const submitBtnStyle = { ...btnStyle, padding: "18px", fontSize: "14px", marginTop: "10px" };
+
+const linkStyle = { fontSize: "10px", color: "#ff6a00", textDecoration: "none", display: "inline-block", marginTop: "10px", borderBottom: "1px solid #ff6a00" };
+
+const divider = { height: "1px", background: "#222", margin: "10px 0" };
