@@ -5,3 +5,4 @@ node_modules/
 out/
 .claude/
 src/.DS_Store
+src/app/.DS_Store
