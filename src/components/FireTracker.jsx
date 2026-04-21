@@ -242,7 +242,7 @@ export default function FireTracker() {
 
             {/* Log Column */}
             <div style={{ flex: isMobile ? "1" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
-              <div style={{ padding: 15, fontSize: 10, color: "#8a6a55", borderBottom: "1px solid #1a1a1f" }}>INCIDENT LOG ({fires.length})</div>
+              <div style={{ padding: 12, fontSize: 14, color: "#8a6a55", borderBottom: "1px solid #1a1a1f" }}>INCIDENT LOG ({fires.length})</div>
               {fires.map((fire, i) => (
                 <div 
                   key={fire.id} 
@@ -286,9 +286,9 @@ export default function FireTracker() {
                     ))}
                   </select>
 
-                  <input name="facility_type" placeholder="Type (e.g. Logistics Center)" style={inputStyle} />
+                  <input name="facility_type" placeholder="Building Type (e.g. Warehouse, Industrial Facility)" style={inputStyle} />
                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    <label style={{ fontSize: 10, color: "#666" }}>Date of Incident</label>
+                    <label style={{ fontSize: 11, color: "#666" }}>Date of Incident</label>
                     <input name="date_occurred" type="date" required style={inputStyle} />
                   </div>
                   <input name="url" placeholder="News Article URL" style={inputStyle} />
@@ -296,7 +296,7 @@ export default function FireTracker() {
                   <button type="submit" disabled={status === "saving"} style={{ ...navBtnStyle, padding: 15, background: "#ff4500", color: "white" }}>
                     {status === "saving" ? "PROCESSING..." : "SUBMIT FOR REVIEW"}
                   </button>
-                  <button type="button" onClick={() => setView("map")} style={{ background: "none", border: "none", color: "#666", fontSize: 11, cursor: "pointer" }}>Cancel</button>
+                  <button type="button" onClick={() => setView("map")} style={{ background: "none", border: "none", color: "#666", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>CANCEL</button>
                </form>
             </div>
           </div>
@@ -305,7 +305,9 @@ export default function FireTracker() {
 
       {/* Footer / Hidden Admin Entry */}
       <footer style={{ padding: 10, textAlign: "center", fontSize: 9, color: "#333", borderTop: "1px solid #111" }}>
-        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER · 
+        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER · FOR INFORMATIONAL PURPOSES ONLY –
+        INCIDENTS SHOULD NOT BE CONSIDERED ARSON UNLESS EXPLICITLY STATED IN THE SOURCE ARTICLE. 
+        ALWAYS REFER TO LOCAL AUTHORITIES FOR OFFICIAL INFORMATION ·
         <span onClick={() => window.location.href = "/admin"} style={{ cursor: "pointer" }}> ADMIN LOGIN</span>
       </footer>
     </div>
@@ -387,8 +389,8 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
 
 // --- STYLES ---
 const navBtnStyle = {
-  background: "#1a1a1f", border: "1px solid #333", color: "#ff6a00",
-  padding: "6px 12px", fontSize: 10, cursor: "pointer", borderRadius: 4,
+  background: "#1a1a1f", border: "1px solid #333", color: "#7dc06c",
+  padding: "6px 12px", fontSize: 11, cursor: "pointer", borderRadius: 4,
   fontFamily: "inherit"
 };
 
