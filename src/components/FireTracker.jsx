@@ -22,11 +22,11 @@ const US_STATES_COORDS = {
 };
 
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
-const MAP_WIDTH = 960;
-const MAP_HEIGHT = 593;
+const MAP_WIDTH = 930;
+const MAP_HEIGHT = 600;
 
 const usProjection = geoAlbersUsa()
-  .scale(1280)
+  .scale(1230)
   .translate([MAP_WIDTH / 2, MAP_HEIGHT / 2]);
 
 function latLngToSVG(lat, lng) {
@@ -169,9 +169,9 @@ export default function FireTracker() {
               lineHeight: 1.05,
             }}
           >
-            🔥 US WAREHOUSE FIRE TRACKER
+            US WAREHOUSE FIRE TRACKER 🔥
           </div>
-          <div style={{ fontSize: "9px", color: "#a07868", letterSpacing: "0.2em", textAlign: isMobile ? "center" : undefined }}>
+          <div style={{ fontSize: "14px", color: "#a07868", letterSpacing: "0.2em", textAlign: isMobile ? "center" : undefined }}>
             CROWDSOURCED INDUSTRIAL INCIDENT MAP
           </div>
         </div>
@@ -184,7 +184,7 @@ export default function FireTracker() {
             <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
             <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
-              <span style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
+              <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
             </div>
           </div>
         ) : (
@@ -197,7 +197,7 @@ export default function FireTracker() {
             </div>
             <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
-              <span style={{ fontSize: "clamp(18px, 4vw, 32px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
+              <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", marginLeft: 4 }}>{fires.length}</span>
             </div>
           </div>
         )}
