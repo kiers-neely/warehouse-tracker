@@ -143,7 +143,7 @@ export default function FireTracker() {
                 padding: "14px 8px 10px 8px",
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "stretch",
+                alignItems: "center",
                 background: "linear-gradient(180deg,#120a05 0%,transparent 100%)",
                 gap: 8,
               }
@@ -182,7 +182,7 @@ export default function FireTracker() {
               {view === "report" ? "✕ CLOSE" : "✚ REPORT FIRE"}
             </button>
             <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
-            <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ background: "#1a0a05", border: "1px solid #a04a2a", borderRadius: 4, padding: "6px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
               <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
             </div>
@@ -195,9 +195,9 @@ export default function FireTracker() {
               </button>
               <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
             </div>
-            <div style={{ background: "#1a0a05", border: "1px solid #ff4500", borderRadius: 6, padding: "4px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ background: "#1a0a05", border: "1px solid #a04a2a", borderRadius: 4, padding: "6px 12px", display: "flex", flexDirection: "row", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
-              <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", marginLeft: 4 }}>{fires.length}</span>
+              <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", marginBottom: -4 }}>{fires.length}</span>
             </div>
           </div>
         )}
@@ -242,7 +242,11 @@ export default function FireTracker() {
 
             {/* Log Column */}
             <div style={{ flex: isMobile ? "1" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
-              <div style={{ padding: 12, fontSize: 14, color: "#8a6a55", borderBottom: "1px solid #1a1a1f" }}>INCIDENT LOG ({fires.length})</div>
+              <div style={{ padding: 12, color: "#8a6a55", borderBottom: "1px solid #1a1a1f", 
+                display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 26, fontFamily: "'Bebas Neue',sans-serif", letterSpacing: "0.1em" }}>INCIDENT LOG</span>
+                  <button type="button" onClick={() => window.location.href = "/admin"} style={{ ...navBtnStyle, cursor: "pointer" }}>ADMIN</button>
+              </div>
               {fires.map((fire, i) => (
                 <div 
                   key={fire.id} 
@@ -304,11 +308,9 @@ export default function FireTracker() {
       </main>
 
       {/* Footer / Hidden Admin Entry */}
-      <footer style={{ padding: 10, textAlign: "center", fontSize: 9, color: "#333", borderTop: "1px solid #111" }}>
-        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER · FOR INFORMATIONAL PURPOSES ONLY –
-        INCIDENTS SHOULD NOT BE CONSIDERED ARSON UNLESS EXPLICITLY STATED IN THE SOURCE ARTICLE. 
-        ALWAYS REFER TO LOCAL AUTHORITIES FOR OFFICIAL INFORMATION ·
-        <span onClick={() => window.location.href = "/admin"} style={{ cursor: "pointer" }}> ADMIN LOGIN</span>
+      <footer style={{ padding: 10, textAlign: "center", display: "flex", flexDirection: "column", fontSize: 9, color: "#333", borderTop: "1px solid #111" }}>
+        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER by @OKQUEEERSTEN · FOR INFORMATIONAL PURPOSES ONLY.
+        INCIDENTS SHOULD NOT BE CONSIDERED ARSON UNLESS EXPLICITLY STATED IN THE SOURCE ARTICLE.
       </footer>
     </div>
   );
