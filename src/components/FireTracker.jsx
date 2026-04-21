@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { US_STATE_OPTIONS } from "../lib/usStates.js";
+import { geoAlbersUsa } from "d3-geo";
 
 // --- CONSTANTS ---
 const US_STATES_COORDS = {
@@ -20,18 +22,20 @@ const US_STATES_COORDS = {
 };
 
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
+const MAP_WIDTH = 960;
+const MAP_HEIGHT = 593;
 
-// Albers Equal Area Conic projection calibrated to the 959×593 SVG.
-// Parameters: parallels 29.5°/45.5°N, central meridian 96°W, ref lat 37.5°N.
-// Linear scale/offset derived by least-squares fit against known state centroids.
+const usProjection = geoAlbersUsa()
+  .scale(1280)
+  .translate([MAP_WIDTH / 2, MAP_HEIGHT / 2]);
+
 function latLngToSVG(lat, lng) {
-  const n = 0.6029, C = 1.3516, rho0 = 1.3031;
-  const phi = lat * Math.PI / 180;
-  const theta = n * (lng + 96) * Math.PI / 180;
-  const rho = Math.sqrt(Math.max(0, C - 2 * n * Math.sin(phi))) / n;
+  const point = usProjection([lng, lat]);
+  if (!point) return null;
+
   return [
-    134 * rho * Math.sin(theta) + 50.5,
-    -205 * (rho0 - rho * Math.cos(theta)) + 54.8,
+    point[0] / MAP_WIDTH * 100,
+    point[1] / MAP_HEIGHT * 100,
   ];
 }
 
@@ -44,6 +48,18 @@ function getCoords(state, index) {
   return [base[0] + jitter, base[1] + jitter2];
 }
 
+function applyStackJitter(coords, stackIndex) {
+  if (stackIndex === 0) return coords;
+
+  const angle = stackIndex * 137.5 * (Math.PI / 180);
+  const radius = Math.min(2.4, 0.45 + stackIndex * 0.35);
+
+  return [
+    coords[0] + Math.cos(angle) * radius,
+    coords[1] + Math.sin(angle) * radius,
+  ];
+}
+
 export default function FireTracker() {
   const [fires, setFires] = useState([]);
   const [view, setView] = useState("map"); // "map", "report", or "admin"
@@ -53,50 +69,6 @@ export default function FireTracker() {
   const [hoveredFire, setHoveredFire] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
-  const geoCacheRef = useRef({});
-
-  // Load persisted geocode cache from localStorage on mount
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("fire-geo-cache");
-      if (raw) geoCacheRef.current = JSON.parse(raw);
-    } catch {}
-  }, []);
-
-  // Geocode any fires that don't have a cached city-level position yet.
-  // Runs sequentially with 1.1s gaps to respect Nominatim's 1 req/s policy.
-  // Dots start at the state center and move to the accurate position once resolved.
-  useEffect(() => {
-    if (fires.length === 0) return;
-    const toGeocode = fires
-      .map(f => {
-        const city = f.location?.replace(/,\s*[A-Z]{2}$/, "").trim();
-        const state = f.state;
-        return { city, state, key: `${city}|${state}` };
-      })
-      .filter(({ city, state, key }) => city && state && !geoCacheRef.current[key]);
-
-    if (toGeocode.length === 0) return;
-
-    (async () => {
-      for (let i = 0; i < toGeocode.length; i++) {
-        const { city, state, key } = toGeocode[i];
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city + ", " + state + ", USA")}&format=json&limit=1`,
-            { headers: { "User-Agent": "fire-tracker/1.0" }, signal: AbortSignal.timeout(8000) }
-          );
-          const data = await res.json();
-          if (data[0]) {
-            geoCacheRef.current[key] = latLngToSVG(+data[0].lat, +data[0].lon);
-            try { localStorage.setItem("fire-geo-cache", JSON.stringify(geoCacheRef.current)); } catch {}
-            setFires(prev => [...prev]); // trigger re-render with new position
-          }
-        } catch {}
-        if (i < toGeocode.length - 1) await new Promise(r => setTimeout(r, 1100));
-      }
-    })();
-  }, [fires.length]); // re-run only when the number of fires changes
 
   // Handle Mobile Detection
   useEffect(() => {
@@ -113,7 +85,7 @@ export default function FireTracker() {
       const res = await fetch("/api/scan"); 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setFires(data.incidents.filter(incident => incident.status === 'approved') || []);
+      setFires(data.incidents || []);
       setStatus("idle");
     } catch (e) {
       setErrorMsg(e.message);
@@ -129,9 +101,9 @@ export default function FireTracker() {
     const formData = new FormData(e.target);
     const payload = Object.fromEntries(formData.entries());
     
-    // Extract state from location string "City, ST" if needed
-    const stateMatch = payload.location.match(/,\s*([A-Z]{2})$/);
-    if (stateMatch) payload.state = stateMatch[1];
+    payload.city = payload.city.trim();
+    payload.state = payload.state.toUpperCase();
+    payload.location = `${payload.city}, ${payload.state}`;
 
     setStatus("saving");
     try {
@@ -241,14 +213,27 @@ export default function FireTracker() {
                <USMap
                 fires={fires.map((f, i) => {
                   const state = f.state || (f.location?.match(/,\s*([A-Z]{2})$/)?.[1] ?? null);
-                  const city = f.location?.replace(/,\s*[A-Z]{2}$/, "").trim();
-                  const geoKey = `${city}|${state}`;
-                  const geoCoords = geoCacheRef.current[geoKey];
-                  // Use accurate geocoded city position when available; jitter only for same-city overlaps
+                  const hasLatLng = Number.isFinite(Number(f.latitude)) && Number.isFinite(Number(f.longitude));
+
+                  const geoCoords = hasLatLng
+                    ? latLngToSVG(Number(f.latitude), Number(f.longitude))
+                    : null;
+
+                  const sameLocationIndex = fires
+                  .slice(0, i)
+                  .filter((other) => {
+                    const sameCity = (other.city || "").toLowerCase() === (f.city || "").toLowerCase();
+                    const sameState = other.state === f.state;
+                    const sameLat = Number(other.latitude) === Number(f.latitude);
+                    const sameLng = Number(other.longitude) === Number(f.longitude);
+                    return (sameCity && sameState) || (sameLat && sameLng);
+                  }).length;
+
                   const coords = geoCoords
-                    ? [geoCoords[0] + Math.sin(i * 137.5) * 0.5, geoCoords[1] + Math.cos(i * 137.5) * 0.5]
+                    ? applyStackJitter(geoCoords, sameLocationIndex)
                     : getCoords(state, i);
-                  return { ...f, state, coords };
+
+                  return { ...f, coords };
                 })}
                 hoveredFire={hoveredFire} setHoveredFire={setHoveredFire}
                 highlightedFire={highlightedFire} isMobile={isMobile}
@@ -285,7 +270,22 @@ export default function FireTracker() {
                <h2 style={{ color: "#ff4500", marginBottom: 20 }}>Report an Incident</h2>
                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
                   <input name="title" placeholder="Short Headline (e.g. 3-Alarm Factory Fire)" required style={inputStyle} />
-                  <input name="location" placeholder="City, ST (e.g. Dallas, TX)" required style={inputStyle} />
+                  <input
+                    name="city"
+                    placeholder="City"
+                    required
+                    style={inputStyle}
+                  />
+
+                  <select name="state" required style={inputStyle} defaultValue="">
+                    <option value="" disabled>State</option>
+                    {US_STATE_OPTIONS.map((state) => (
+                      <option key={state.value} value={state.value}>
+                        {state.label}
+                      </option>
+                    ))}
+                  </select>
+
                   <input name="facility_type" placeholder="Type (e.g. Logistics Center)" style={inputStyle} />
                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                     <label style={{ fontSize: 10, color: "#666" }}>Date of Incident</label>
@@ -346,10 +346,15 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
       <div className="scan-beam"></div>
       <img src="/us-map.svg" alt="US Map" style={{ width: "100%", opacity: 0.3, filter: "invert(1)" }} />
       {fires.map((fire, i) => {
+
         if (!fire.coords || fire.state === "AK" || fire.state === "HI") return null;
+
         const [x, y] = fire.coords;
+
         if (x < 0 || x > 100 || y < 0 || y > 100) return null;
+
         const active = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
+
         return (
           <div key={fire.id}
             onMouseEnter={() => setHoveredFire(fire)}

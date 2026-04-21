@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { US_STATE_OPTIONS } from "../../lib/usStates.js";
 
 export default function ModerationPage() {
   const [pending, setPending] = useState([]);
@@ -8,18 +9,18 @@ export default function ModerationPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Fetch only pending fires
+  // Fetch pending fires through admin-authenticated API route
   const fetchPending = async () => {
     setLoading(true);
     try {
-      // We pass the password to a specialized GET query or filter on the client
-      const res = await fetch("/api/scan");
+      const res = await fetch(`/api/scan?status=pending&admin_password=${encodeURIComponent(password)}`);
       const data = await res.json();
-      // Filter for pending status only
-      const pendingFires = (data.incidents || []).filter(f => f.status === "pending");
-      setPending(pendingFires);
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load pending fires");
+      }
+      setPending(data.incidents || []);
     } catch (e) {
-      alert("Failed to load pending fires");
+      alert(e.message || "Failed to load pending fires");
     } finally {
       setLoading(false);
     }
@@ -54,7 +55,9 @@ export default function ModerationPage() {
     e.preventDefault();
     const formData = new FormData(e.target);
     const payload = Object.fromEntries(formData.entries());
-    
+    payload.city = payload.city.trim();
+    payload.state = payload.state.toUpperCase();
+    payload.location = `${payload.city}, ${payload.state}`;
     try {
       const res = await fetch("/api/scan", {
         method: "POST",
@@ -100,6 +103,32 @@ export default function ModerationPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h1 style={{ color: "#ff4500" }}>Pending Submissions ({pending.length})</h1>
           <button onClick={() => window.location.href = "/"} style={secondaryBtn}>Back to Map</button>
+          <button
+            onClick={async () => {
+                const res = await fetch("/api/scan", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        admin_password: password,
+                        action: "backfill_geocodes",
+                    }),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    alert(data.error || "Backfill failed");
+                    return;
+                }
+
+                console.log(data);
+                alert(data.message);
+            }}
+            style={secondaryBtn}
+          >
+            Backfill Geocodes
+          </button>
+
         </div>
 
         {loading ? <p>Loading...</p> : (
@@ -130,7 +159,21 @@ export default function ModerationPage() {
         <form onSubmit={handleAdminAdd} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
           <input name="admin_password" type="password" placeholder="Confirm Admin Password" required style={inputStyle} />
           <input name="title" placeholder="Short Headline" required style={inputStyle} />
-          <input name="location" placeholder="City, ST" required style={inputStyle} />
+          <input
+            name="city"
+            placeholder="City"
+            required
+            style={inputStyle}
+          />
+
+          <select name="state" required style={inputStyle} defaultValue="">
+            <option value="" disabled>State</option>
+            {US_STATE_OPTIONS.map((state) => (
+                <option key={state.value} value={state.value}>
+                    {state.label}
+                </option>
+            ))}
+          </select>
           <input name="facility_type" placeholder="Type" style={inputStyle} />
           <input name="date_occurred" type="date" required style={inputStyle} />
           <input name="url" placeholder="News Article URL" style={inputStyle} />
