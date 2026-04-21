@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { US_STATE_OPTIONS } from "../lib/usStates.js";
 import { geoAlbersUsa } from "d3-geo";
 
@@ -69,6 +69,10 @@ export default function FireTracker() {
   const [hoveredFire, setHoveredFire] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
+  const [newIncidentIds, setNewIncidentIds] = useState(new Set());
+  const knownIncidentIdsRef = useRef(new Set());
+  const hasLoadedIncidentsRef = useRef(false);
+  const newIncidentTimerRef = useRef(null);
 
   // Handle Mobile Detection
   useEffect(() => {
@@ -78,6 +82,14 @@ export default function FireTracker() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (newIncidentTimerRef.current) {
+        clearTimeout(newIncidentTimerRef.current);
+      }
+    };
+  }, []);
+
   // Fetch approved fires for the map
   const fetchApprovedFires = useCallback(async () => {
     setStatus("loading");
@@ -85,7 +97,31 @@ export default function FireTracker() {
       const res = await fetch("/api/scan"); 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setFires(data.incidents || []);
+
+      const incidents = data.incidents || [];
+      const nextIds = new Set(incidents.map((incident) => incident.id));
+
+      if (hasLoadedIncidentsRef.current) {
+        const newIds = incidents
+          .filter((incident) => !knownIncidentIdsRef.current.has(incident.id))
+          .map((incident) => incident.id);
+
+        setNewIncidentIds(new Set(newIds));
+
+        if (newIncidentTimerRef.current) {
+          clearTimeout(newIncidentTimerRef.current);
+        }
+
+        if (newIds.length > 0) {
+          newIncidentTimerRef.current = setTimeout(() => {
+            setNewIncidentIds(new Set());
+          }, 3500);
+        }
+      }
+
+      knownIncidentIdsRef.current = nextIds;
+      hasLoadedIncidentsRef.current = true;
+      setFires(incidents);
       setStatus("idle");
     } catch (e) {
       setErrorMsg(e.message);
@@ -158,7 +194,7 @@ export default function FireTracker() {
         }
       >
         <div onClick={() => setView("map")} style={{ cursor: "pointer", marginBottom: isMobile ? 8 : 0 }}>
-          <div
+          <div className="header-title"
             style={{
               fontFamily: "'Bebas Neue',sans-serif",
               fontSize: isMobile ? "clamp(28px,10vw,44px)" : "clamp(20px,4vw,44px)",
@@ -244,19 +280,22 @@ export default function FireTracker() {
             <div style={{ flex: isMobile ? "1" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
               <div style={{ padding: 12, color: "#8a6a55", borderBottom: "1px solid #1a1a1f", 
                 display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 26, fontFamily: "'Bebas Neue',sans-serif", letterSpacing: "0.1em" }}>INCIDENT LOG</span>
+                  <span style={{ fontSize: 26, fontFamily: "'Bebas Neue',sans-serif", letterSpacing: "0.1em", verticalAlign: "middle", marginBottom: -4 }}>INCIDENT LOG</span>
                   <button type="button" onClick={() => window.location.href = "/admin"} style={{ ...navBtnStyle, cursor: "pointer" }}>ADMIN</button>
               </div>
               {fires.map((fire, i) => (
-                <div 
-                  key={fire.id} 
+                <div
+                  key={fire.id}
+                  className={newIncidentIds.has(fire.id) ? "fire-row fire-row-new" : "fire-row"}
                   onMouseEnter={() => setHighlightedFire(fire)}
                   onMouseLeave={() => setHighlightedFire(null)}
-                  style={{ 
-                    padding: "15px 20px", borderBottom: "1px solid #120d09", 
-                    background: highlightedFire?.id === fire.id ? "#1a0a05" : "transparent"
+                  style={{
+                    padding: "15px 20px",
+                    borderBottom: "1px solid #120d09",
+                    background: highlightedFire?.id === fire.id ? "#1a0a05" : "transparent",
                   }}
                 >
+
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                     <span style={{ color: FIRE_COLORS[i % 5], fontWeight: "bold" }}>{fire.location}</span>
                     <span style={{ color: "#777" }}>{fire.date_occurred}</span>
@@ -309,7 +348,7 @@ export default function FireTracker() {
 
       {/* Footer / Hidden Admin Entry */}
       <footer style={{ padding: 10, textAlign: "center", display: "flex", flexDirection: "column", fontSize: 9, color: "#333", borderTop: "1px solid #111" }}>
-        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER by @OKQUEEERSTEN · FOR INFORMATIONAL PURPOSES ONLY.
+        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER by @OKQUEERSTEN · FOR INFORMATIONAL PURPOSES ONLY.
         INCIDENTS SHOULD NOT BE CONSIDERED ARSON UNLESS EXPLICITLY STATED IN THE SOURCE ARTICLE.
       </footer>
     </div>

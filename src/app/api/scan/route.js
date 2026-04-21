@@ -145,6 +145,26 @@ export async function POST(request) {
 
   const { admin_password, action, id, ...fireData } = body;
 
+  if (action === "list_pending") {
+    if (admin_password !== process.env.ADMIN_SECRET_PASSWORD) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("incidents")
+        .select("*")
+        .eq("status", "pending")
+        .order("date_occurred", { ascending: false });
+
+      if (error) throw error;
+
+      return Response.json({ incidents: data });
+    } catch (err) {
+      return Response.json({ error: err.message }, { status: 500 });
+    }
+  }
+
   // temporary backfill action for existing entries without location - can be removed in the future
   if (action === "backfill_geocodes") {
   if (admin_password !== process.env.ADMIN_SECRET_PASSWORD) {

@@ -10,19 +10,37 @@ export default function ModerationPage() {
   const [loading, setLoading] = useState(false);
 
   // Fetch pending fires through admin-authenticated API route
-  const fetchPending = async () => {
+  const fetchPending = async (passwordToCheck = password) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/scan?status=pending&admin_password=${encodeURIComponent(password)}`);
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          admin_password: passwordToCheck,
+          action: "list_pending",
+        }),
+      });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to load pending fires");
       }
       setPending(data.incidents || []);
+      return true;
     } catch (e) {
-      alert(e.message || "Failed to load pending fires");
+      setIsAuthenticated(false);
+      setPending([]);
+      alert(e.message === "Unauthorized" ? "Incorrect admin password" : e.message || "Failed to load pending fires");
+      return false;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    const ok = await fetchPending(password);
+    if (ok) {
+      setIsAuthenticated(true);
     }
   };
 
@@ -87,10 +105,11 @@ export default function ModerationPage() {
             style={inputStyle}
           />
           <button 
-            onClick={() => { setIsAuthenticated(true); fetchPending(); }} 
+            onClick={handleLogin}
+            disabled={loading}
             style={btnStyle}
           >
-            Login to Dashboard
+            {loading ? "Checking..." : "Login to Dashboard"}
           </button>
         </div>
       </div>

@@ -1,12 +1,52 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
 
 @keyframes scan-line { 0%{top:0;opacity:0.6} 100%{top:100%;opacity:0} }
-@keyframes flicker { 0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:0.4} 94%{opacity:1} 96%{opacity:0.8} 97%{opacity:1} }
+@keyframes firelight-flicker {
+  0%, 100% {
+    color: #ff4500;
+    text-shadow:
+      0 0 4px rgba(255, 69, 0, 0.55),
+      0 0 12px rgba(255, 106, 0, 0.25);
+    filter: brightness(1);
+  }
+
+  42% {
+    color: #ff5a00;
+    text-shadow:
+      0 0 5px rgba(255, 90, 0, 0.65),
+      0 0 16px rgba(255, 140, 0, 0.28);
+    filter: brightness(1.08);
+  }
+
+  47% {
+    color: #ff3b00;
+    text-shadow:
+      0 0 3px rgba(255, 69, 0, 0.45),
+      0 0 9px rgba(255, 106, 0, 0.18);
+    filter: brightness(0.96);
+  }
+
+  51% {
+    color: #ff7200;
+    text-shadow:
+      0 0 6px rgba(255, 114, 0, 0.7),
+      0 0 18px rgba(255, 190, 0, 0.32);
+    filter: brightness(1.12);
+  }
+
+  56% {
+    color: #ff4500;
+    text-shadow:
+      0 0 4px rgba(255, 69, 0, 0.55),
+      0 0 12px rgba(255, 106, 0, 0.22);
+    filter: brightness(1);
+  }
+}
 @keyframes glow-in { 0%{box-shadow:0 0 20px #ff4500aa,0 0 40px #ff450055} 100%{box-shadow:none} }
 @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 .fire-row-new { animation: glow-in 3s ease-out forwards; border-left: 2px solid #ff4500 !important; }
 .fire-row:hover { background: rgba(255,69,0,0.08) !important; cursor: pointer; }
-.header-title { animation: flicker 8s infinite; }
+.header-title { animation: firelight-flicker 4.8s ease-in-out infinite; }
 .spin-icon { animation: spin 1s linear infinite; display: inline-block; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: #111; }
