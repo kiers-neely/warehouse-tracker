@@ -322,7 +322,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
           0% { left: -5%; opacity: 0; }
           10% { opacity: 1; }
           90% { opacity: 1; }
-          100% { left: 105%; opacity: 0; }
+          100% { left: 102%; opacity: 0; }
         }
         @keyframes breathe {
           0%, 100% { box-shadow: 0 0 0px rgba(255, 107, 0, 0), inset 0 0 0px rgba(255, 107, 0, 0); }
