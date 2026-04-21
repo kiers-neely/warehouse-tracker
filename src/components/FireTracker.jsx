@@ -348,8 +348,8 @@ export default function FireTracker() {
 
       {/* Footer / Hidden Admin Entry */}
       <footer style={{ padding: 10, textAlign: "center", display: "flex", flexDirection: "column", fontSize: 9, color: "#333", borderTop: "1px solid #111" }}>
-        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER by @OKQUEERSTEN · FOR INFORMATIONAL PURPOSES ONLY.
-        INCIDENTS SHOULD NOT BE CONSIDERED ARSON UNLESS EXPLICITLY STATED IN THE SOURCE ARTICLE.
+        © {new Date().getFullYear()} WAREHOUSE FIRE TRACKER by @OKQUEERSTEN · FOR INFORMATIONAL PURPOSES ONLY · 
+        INCIDENTS SHOULD NOT BE CONSIDERED ARSON UNLESS EXPLICITLY STATED IN THE SOURCE ARTICLE
       </footer>
     </div>
   );
