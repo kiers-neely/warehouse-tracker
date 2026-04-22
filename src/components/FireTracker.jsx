@@ -24,6 +24,9 @@ const US_STATES_COORDS = {
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
 const MAP_WIDTH = 930;
 const MAP_HEIGHT = 600;
+const MIN_MAP_ZOOM = 1;
+const MAX_MAP_ZOOM = 3.2;
+const MAP_DRAG_SPEED = 1.8;
 
 const usProjection = geoAlbersUsa()
   .scale(1230)
@@ -58,6 +61,22 @@ function applyStackJitter(coords, stackIndex) {
     coords[0] + Math.cos(angle) * radius,
     coords[1] + Math.sin(angle) * radius,
   ];
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function clampMapPan(pan, zoomLevel) {
+  if (zoomLevel <= 1) return { x: 0, y: 0 };
+
+  const maxX = ((zoomLevel - 1) / zoomLevel) * 100 * 1.35;
+  const maxY = ((zoomLevel - 1) / zoomLevel) * 100 * 1.35;
+
+  return {
+    x: clamp(pan.x, -maxX, maxX),
+    y: clamp(pan.y, -maxY, maxY),
+  };
 }
 
 export default function FireTracker() {
@@ -162,6 +181,9 @@ export default function FireTracker() {
     }
   };
 
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+
   return (
     <div style={{
       minHeight: "100vh", height: isMobile ? "auto" : "100vh",
@@ -245,40 +267,65 @@ export default function FireTracker() {
         {view === "map" ? (
           <>
             {/* Map Column */}
-            <div style={{ flex: isMobile ? "0 0 300px" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
-               <USMap
+            <div style={{ flex: isMobile ? "0 0 auto" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
+              <MapControls
+                zoomLevel={zoomLevel}
+                onZoomIn={() => {
+                  setZoomLevel((level) => {
+                    const nextLevel = Math.min(MAX_MAP_ZOOM, Number((level + 0.2).toFixed(2)));
+                    setPan((current) => clampMapPan(current, nextLevel));
+                    return nextLevel;
+                  });
+                }}
+                onZoomOut={() => {
+                  setZoomLevel((level) => {
+                    const nextLevel = Math.max(MIN_MAP_ZOOM, Number((level - 0.2).toFixed(2)));
+                    setPan((current) => clampMapPan(current, nextLevel));
+                    return nextLevel;
+                  });
+                }}
+                onPanLeft={() => setPan((current) => clampMapPan({ ...current, x: current.x + 6 / zoomLevel }, zoomLevel))}
+                onPanRight={() => setPan((current) => clampMapPan({ ...current, x: current.x - 6 / zoomLevel }, zoomLevel))}
+                onReset={() => {
+                  setZoomLevel(1);
+                  setPan({ x: 0, y: 0 });
+                }}
+              />
+              <USMap
                 fires={fires.map((f, i) => {
                   const state = f.state || (f.location?.match(/,\s*([A-Z]{2})$/)?.[1] ?? null);
                   const hasLatLng = Number.isFinite(Number(f.latitude)) && Number.isFinite(Number(f.longitude));
-
                   const geoCoords = hasLatLng
                     ? latLngToSVG(Number(f.latitude), Number(f.longitude))
                     : null;
-
                   const sameLocationIndex = fires
-                  .slice(0, i)
-                  .filter((other) => {
-                    const sameCity = (other.city || "").toLowerCase() === (f.city || "").toLowerCase();
-                    const sameState = other.state === f.state;
-                    const sameLat = Number(other.latitude) === Number(f.latitude);
-                    const sameLng = Number(other.longitude) === Number(f.longitude);
-                    return (sameCity && sameState) || (sameLat && sameLng);
-                  }).length;
-
+                    .slice(0, i)
+                    .filter((other) => {
+                      const sameCity = (other.city || "").toLowerCase() === (f.city || "").toLowerCase();
+                      const sameState = other.state === f.state;
+                      const sameLat = Number(other.latitude) === Number(f.latitude);
+                      const sameLng = Number(other.longitude) === Number(f.longitude);
+                      return (sameCity && sameState) || (sameLat && sameLng);
+                    }).length;
                   const coords = geoCoords
                     ? applyStackJitter(geoCoords, sameLocationIndex)
                     : getCoords(state, i);
-
-                  return { ...f, coords };
+                  return { ...f, coords, state };
                 })}
-                hoveredFire={hoveredFire} setHoveredFire={setHoveredFire}
-                highlightedFire={highlightedFire} isMobile={isMobile}
-               />
+                hoveredFire={hoveredFire}
+                setHoveredFire={setHoveredFire}
+                highlightedFire={highlightedFire}
+                isMobile={isMobile}
+                zoomLevel={zoomLevel}
+                setZoomLevel={setZoomLevel}
+                pan={pan}
+                setPan={setPan}
+              />
             </div>
 
             {/* Log Column */}
             <div style={{ flex: isMobile ? "1" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
-              <div style={{ padding: 12, color: "#8a6a55", borderBottom: "1px solid #1a1a1f", 
+              <div style={{ padding: 12, color: "#8a6a55", borderBottom: "1px solid #1a1a1f",
                 display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 26, fontFamily: "'Bebas Neue',sans-serif", letterSpacing: "0.1em", verticalAlign: "middle", marginBottom: -4 }}>INCIDENT LOG</span>
                   <button type="button" onClick={() => window.location.href = "/admin"} style={{ ...navBtnStyle, cursor: "pointer" }}>ADMIN</button>
@@ -295,7 +342,6 @@ export default function FireTracker() {
                     background: highlightedFire?.id === fire.id ? "#1a0a05" : "transparent",
                   }}
                 >
-
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                     <span style={{ color: FIRE_COLORS[i % 5], fontWeight: "bold" }}>{fire.location}</span>
                     <span style={{ color: "#777" }}>{fire.date_occurred}</span>
@@ -357,9 +403,140 @@ export default function FireTracker() {
 
 // --- SUB-COMPONENTS ---
 
-function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }) {
+function MapControls({ zoomLevel, onZoomIn, onZoomOut, onPanLeft, onPanRight, onReset }) {
   return (
-    <div style={{ position: "relative", width: "100%", background: "radial-gradient(circle, rgba(255, 69, 0, 0.08) 0%, rgba(255, 107, 0, 0.03) 40%, transparent 50%)" }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ color: "#8a6a55", fontSize: 10, letterSpacing: "0.14em" }}>
+        MAP VIEW {Math.round(zoomLevel * 100)}%
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button type="button" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut} style={mapControlBtnStyle}>-</button>
+        <button type="button" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn} style={mapControlBtnStyle}>+</button>
+        <button type="button" aria-label="Pan left" title="Pan left" onClick={onPanLeft} style={mapControlBtnStyle}>←</button>
+        <button type="button" aria-label="Pan right" title="Pan right" onClick={onPanRight} style={mapControlBtnStyle}>→</button>
+        <button type="button" aria-label="Reset map view" title="Reset map view" onClick={onReset} style={mapResetBtnStyle}>RESET</button>
+      </div>
+    </div>
+  );
+}
+
+function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, zoomLevel = 1, setZoomLevel, pan, setPan }) {
+  const mapRef = useRef(null);
+  const dragStartRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
+  const currentPan = pan || { x: 0, y: 0 };
+  const mapTransform = `translate(${currentPan.x}%, ${currentPan.y}%) scale(${zoomLevel})`;
+  const markerBaseSize = isMobile ? 7 : 9;
+  const markerActiveSize = isMobile ? 11 : 13;
+  const markerScale = 1 / Math.sqrt(zoomLevel);
+
+  useEffect(() => {
+    const mapElement = mapRef.current;
+    if (!mapElement) return;
+
+    const handleNativeWheel = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const bounds = mapElement.getBoundingClientRect();
+      const pointerX = ((event.clientX - bounds.left) / bounds.width) * 100;
+      const pointerY = ((event.clientY - bounds.top) / bounds.height) * 100;
+      const direction = event.deltaY > 0 ? -1 : 1;
+      const step = event.ctrlKey ? 0.12 : Math.abs(event.deltaY) > 60 ? 0.2 : 0.1;
+
+      setZoomOrigin({
+        x: clamp(pointerX, 0, 100),
+        y: clamp(pointerY, 0, 100),
+      });
+
+      setZoomLevel((level) => {
+        const nextLevel = clamp(Number((level + direction * step).toFixed(2)), MIN_MAP_ZOOM, MAX_MAP_ZOOM);
+        setPan((current) => clampMapPan(current, nextLevel));
+        return nextLevel;
+      });
+    };
+
+    const preventBrowserGestureZoom = (event) => {
+      event.preventDefault();
+    };
+
+    mapElement.addEventListener("wheel", handleNativeWheel, { passive: false });
+    mapElement.addEventListener("gesturestart", preventBrowserGestureZoom);
+    mapElement.addEventListener("gesturechange", preventBrowserGestureZoom);
+
+    return () => {
+      mapElement.removeEventListener("wheel", handleNativeWheel);
+      mapElement.removeEventListener("gesturestart", preventBrowserGestureZoom);
+      mapElement.removeEventListener("gesturechange", preventBrowserGestureZoom);
+    };
+  }, [currentPan.x, currentPan.y, setPan, setZoomLevel]);
+
+  const handlePointerDown = (event) => {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragStartRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      pan: currentPan,
+      zoomLevel,
+    };
+    setIsDragging(true);
+  };
+
+  const handlePointerMove = (event) => {
+    const dragStart = dragStartRef.current;
+    const bounds = mapRef.current?.getBoundingClientRect();
+
+    if (!dragStart || !bounds) return;
+
+    event.preventDefault();
+    const deltaX = ((event.clientX - dragStart.x) / bounds.width) * 100 / dragStart.zoomLevel * MAP_DRAG_SPEED;
+    const deltaY = ((event.clientY - dragStart.y) / bounds.height) * 100 / dragStart.zoomLevel * MAP_DRAG_SPEED;
+
+    setPan(clampMapPan({
+      x: dragStart.pan.x + deltaX,
+      y: dragStart.pan.y + deltaY,
+    }, dragStart.zoomLevel));
+  };
+
+  const endDrag = (event) => {
+    if (dragStartRef.current?.pointerId === event.pointerId) {
+      dragStartRef.current = null;
+      setIsDragging(false);
+    }
+  };
+
+  return (
+    <div
+      ref={mapRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      style={{
+        position: "relative",
+        width: "100%",
+        aspectRatio: "959 / 593",
+        overflow: "hidden",
+        background: "radial-gradient(circle, rgba(255, 69, 0, 0.08) 0%, rgba(255, 107, 0, 0.03) 40%, transparent 50%)",
+        cursor: isDragging ? "grabbing" : "grab",
+        touchAction: "none",
+        userSelect: "none",
+      }}
+    >
       <style>{`
         @keyframes scanBeam {
           0% { left: -5%; opacity: 0; }
@@ -380,50 +557,80 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile }
           box-shadow: 0 0 20px rgba(255, 107, 0, 0.4);
           animation: scanBeam 6s ease-in-out infinite;
           pointer-events: none;
-          z-index: 0;
+          z-index: 3;
         }
         .fire-marker-breathing {
           animation: breathe 0.8s ease-in-out infinite;
         }
       `}</style>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          transform: mapTransform,
+          transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+          transition: isDragging ? "none" : "transform 220ms ease-out",
+        }}
+      >
+        <img
+          src="/us-map.svg"
+          alt="US Map"
+          draggable={false}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            opacity: 0.3,
+            filter: "invert(1)",
+            pointerEvents: "none",
+          }}
+        />
+        {fires.map((fire, i) => {
+          if (!fire.coords || fire.state === "AK" || fire.state === "HI") return null;
+
+          const [x, y] = fire.coords;
+
+          if (x < 0 || x > 100 || y < 0 || y > 100) return null;
+
+          const active = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
+          const markerSize = active ? markerActiveSize : markerBaseSize;
+
+          return (
+            <div
+              key={fire.id}
+              onMouseEnter={() => setHoveredFire(fire)}
+              onMouseLeave={() => setHoveredFire(null)}
+              className="fire-marker-breathing"
+              style={{
+                position: "absolute",
+                left: `${x}%`,
+                top: `${y}%`,
+                width: markerSize,
+                height: markerSize,
+                background: FIRE_COLORS[i % 5],
+                borderRadius: "50%",
+                transform: `translate(-50%, -50%) scale(${markerScale})`,
+                cursor: "pointer",
+                boxShadow: active ? `0 0 15px ${FIRE_COLORS[i % 5]}` : "none",
+                zIndex: active ? 100 : 2,
+                transition: "width 0.2s, height 0.2s, box-shadow 0.2s",
+              }}
+            >
+              {active && (
+                <div style={{
+                  position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
+                  background: "#000", padding: "4px 8px", borderRadius: 4, fontSize: 9, whiteSpace: "nowrap",
+                  border: "1px solid #333", marginBottom: 5
+                }}>
+                  {fire.location}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
       <div className="scan-beam"></div>
-      <img src="/us-map.svg" alt="US Map" style={{ width: "100%", opacity: 0.3, filter: "invert(1)" }} />
-      {fires.map((fire, i) => {
-
-        if (!fire.coords || fire.state === "AK" || fire.state === "HI") return null;
-
-        const [x, y] = fire.coords;
-
-        if (x < 0 || x > 100 || y < 0 || y > 100) return null;
-
-        const active = highlightedFire?.id === fire.id || hoveredFire?.id === fire.id;
-
-        return (
-          <div key={fire.id}
-            onMouseEnter={() => setHoveredFire(fire)}
-            onMouseLeave={() => setHoveredFire(null)}
-            className="fire-marker-breathing"
-            style={{
-              position: "absolute", left: `${x}%`, top: `${y}%`,
-              width: active ? 12 : 8, height: active ? 12 : 8,
-              background: FIRE_COLORS[i % 5], borderRadius: "50%",
-              transform: "translate(-50%, -50%)", cursor: "pointer",
-              boxShadow: active ? `0 0 15px ${FIRE_COLORS[i % 5]}` : "none",
-              zIndex: active ? 100 : 1, transition: "all 0.2s"
-            }}
-          >
-            {active && (
-              <div style={{
-                position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
-                background: "#000", padding: "4px 8px", borderRadius: 4, fontSize: 9, whiteSpace: "nowrap",
-                border: "1px solid #333", marginBottom: 5
-              }}>
-                {fire.location}
-              </div>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -433,6 +640,28 @@ const navBtnStyle = {
   background: "#1a1a1f", border: "1px solid #333", color: "#7dc06c",
   padding: "6px 12px", fontSize: 11, cursor: "pointer", borderRadius: 4,
   fontFamily: "inherit"
+};
+
+const mapControlBtnStyle = {
+  width: 30,
+  height: 30,
+  background: "#151519",
+  border: "1px solid #333",
+  color: "#ff8c00",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: 15,
+  lineHeight: 1,
+};
+
+const mapResetBtnStyle = {
+  ...mapControlBtnStyle,
+  width: "auto",
+  padding: "0 9px",
+  color: "#7dc06c",
+  fontSize: 10,
+  letterSpacing: "0.08em",
 };
 
 const inputStyle = {
