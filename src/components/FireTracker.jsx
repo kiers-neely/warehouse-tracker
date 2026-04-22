@@ -27,8 +27,10 @@ const MAP_HEIGHT = 600;
 const US_MAP_VIEWBOX = "0 0 959 593";
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 3.2;
-const MAP_DRAG_SPEED = 1.8;
+const MAP_PAN_BOUND_MULTIPLIER = 1.85;
+const STATE_FOCUS_ZOOM_MULTIPLIER = 1.22;
 const statePathCache = new Map();
+const stateInteractionPathCache = [];
 const STATE_VIEW_ZOOM = {
   AK: 1.35, TX: 1.65, CA: 1.75, MT: 1.9, NM: 1.95, AZ: 2,
   NV: 2, CO: 2.05, OR: 2.05, WY: 2.05, ID: 2.05, UT: 2.05,
@@ -81,8 +83,8 @@ function clamp(value, min, max) {
 function clampMapPan(pan, zoomLevel) {
   if (zoomLevel <= 1) return { x: 0, y: 0 };
 
-  const maxX = ((zoomLevel - 1) / zoomLevel) * 100 * 1.35;
-  const maxY = ((zoomLevel - 1) / zoomLevel) * 100 * 1.35;
+  const maxX = ((zoomLevel - 1) / zoomLevel) * 100 * MAP_PAN_BOUND_MULTIPLIER;
+  const maxY = ((zoomLevel - 1) / zoomLevel) * 100 * MAP_PAN_BOUND_MULTIPLIER;
 
   return {
     x: clamp(pan.x, -maxX, maxX),
@@ -91,7 +93,8 @@ function clampMapPan(pan, zoomLevel) {
 }
 
 function getStateViewZoom(state) {
-  return STATE_VIEW_ZOOM[state] || 2.65;
+  const baseZoom = STATE_VIEW_ZOOM[state] || 2.65;
+  return clamp(Number((baseZoom * STATE_FOCUS_ZOOM_MULTIPLIER).toFixed(2)), MIN_MAP_ZOOM, MAX_MAP_ZOOM);
 }
 
 function getStateViewPan(state, zoomLevel) {
@@ -99,8 +102,8 @@ function getStateViewPan(state, zoomLevel) {
   if (!center) return { x: 0, y: 0 };
 
   return clampMapPan({
-    x: (50 - center[0]) / zoomLevel,
-    y: (50 - center[1]) / zoomLevel,
+    x: (50 - center[0]) * zoomLevel,
+    y: (50 - center[1]) * zoomLevel,
   }, zoomLevel);
 }
 
@@ -221,13 +224,9 @@ export default function FireTracker() {
       return;
     }
 
-    const center = US_STATES_COORDS[state];
     const nextLevel = getStateViewZoom(state);
 
-    if (center) {
-      setMapZoomOrigin({ x: center[0], y: center[1] });
-    }
-
+    setMapZoomOrigin({ x: 50, y: 50 });
     setZoomLevel(nextLevel);
     setPan(getStateViewPan(state, nextLevel));
   };
@@ -334,8 +333,6 @@ export default function FireTracker() {
                     return nextLevel;
                   });
                 }}
-                onPanLeft={() => setPan((current) => clampMapPan({ ...current, x: current.x + 6 / zoomLevel }, zoomLevel))}
-                onPanRight={() => setPan((current) => clampMapPan({ ...current, x: current.x - 6 / zoomLevel }, zoomLevel))}
                 onReset={() => {
                   setSelectedMapState("");
                   setZoomLevel(1);
@@ -375,6 +372,7 @@ export default function FireTracker() {
                 zoomOrigin={mapZoomOrigin}
                 setZoomOrigin={setMapZoomOrigin}
                 selectedState={selectedMapState}
+                onStateClick={handleMapStateChange}
               />
             </div>
 
@@ -458,7 +456,7 @@ export default function FireTracker() {
 
 // --- SUB-COMPONENTS ---
 
-function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoomOut, onPanLeft, onPanRight, onReset }) {
+function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoomOut, onReset }) {
   return (
     <div
       style={{
@@ -489,8 +487,6 @@ function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoom
         </select>
         <button type="button" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut} style={mapControlBtnStyle}>-</button>
         <button type="button" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn} style={mapControlBtnStyle}>+</button>
-        <button type="button" aria-label="Pan left" title="Pan left" onClick={onPanLeft} style={mapControlBtnStyle}>←</button>
-        <button type="button" aria-label="Pan right" title="Pan right" onClick={onPanRight} style={mapControlBtnStyle}>→</button>
         <button type="button" aria-label="Reset map view" title="Reset map view" onClick={onReset} style={mapResetBtnStyle}>RESET</button>
       </div>
     </div>
@@ -568,19 +564,113 @@ function StateHighlight({ selectedState }) {
         stroke="#ffcc66"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="3"
+        strokeWidth="2"
+        strokeOpacity="0.5"
         vectorEffect="non-scaling-stroke"
       />
     </svg>
   );
 }
 
-function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, zoomLevel = 1, setZoomLevel, pan, setPan, zoomOrigin, setZoomOrigin, selectedState }) {
+function StateInteractionLayer({ selectedState, onHoverState, onStateClick }) {
+  const [statePaths, setStatePaths] = useState(stateInteractionPathCache);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (stateInteractionPathCache.length > 0) {
+      setStatePaths(stateInteractionPathCache);
+      return;
+    }
+
+    (async () => {
+      try {
+        const response = await fetch("/us-map.svg");
+        if (!response.ok) throw new Error("Could not load state map");
+
+        const svgText = await response.text();
+        const svgDoc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+        const nextStatePaths = US_STATE_OPTIONS
+          .map(({ value, label }) => {
+            const pathD = svgDoc.querySelector(`path.${value.toLowerCase()}`)?.getAttribute("d");
+            if (!pathD) return null;
+            statePathCache.set(value, pathD);
+            return { value, label, pathD };
+          })
+          .filter(Boolean);
+
+        stateInteractionPathCache.push(...nextStatePaths);
+        if (!cancelled) setStatePaths(nextStatePaths);
+      } catch {
+        if (!cancelled) setStatePaths([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (statePaths.length === 0) return null;
+
+  return (
+    <svg
+      aria-hidden="false"
+      viewBox={US_MAP_VIEWBOX}
+      preserveAspectRatio="none"
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        WebkitTapHighlightColor: "transparent",
+        zIndex: 2,
+      }}
+    >
+      {statePaths.map(({ value, label, pathD }) => (
+        <path
+          key={value}
+          aria-label={`Focus ${label}`}
+          role="button"
+          tabIndex={0}
+          d={pathD}
+          fill="transparent"
+          stroke="transparent"
+          strokeWidth={selectedState === value ? 8 : 4}
+          vectorEffect="non-scaling-stroke"
+          style={{
+            cursor: "pointer",
+            outline: "none",
+            pointerEvents: "all",
+          }}
+          onPointerEnter={() => {
+            if (!selectedState) onHoverState(value);
+          }}
+          onPointerLeave={() => {
+            if (!selectedState) onHoverState(null);
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onStateClick(value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            onStateClick(value);
+          }}
+        />
+      ))}
+    </svg>
+  );
+}
+
+function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, zoomLevel = 1, setZoomLevel, pan, setPan, zoomOrigin, setZoomOrigin, selectedState, onStateClick }) {
   const mapRef = useRef(null);
-  const dragStartRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [hoveredMapState, setHoveredMapState] = useState(null);
   const currentZoomOrigin = zoomOrigin || { x: 50, y: 50 };
   const currentPan = pan || { x: 0, y: 0 };
+  const highlightedState = selectedState || hoveredMapState;
   const mapTransform = `translate(${currentPan.x}%, ${currentPan.y}%) scale(${zoomLevel})`;
   const markerBaseSize = isMobile ? 7 : 9;
   const markerActiveSize = isMobile ? 11 : 13;
@@ -627,59 +717,16 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
     };
   }, [currentPan.x, currentPan.y, setPan, setZoomLevel]);
 
-  const handlePointerDown = (event) => {
-    if (event.button !== 0) return;
-
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragStartRef.current = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      pan: currentPan,
-      zoomLevel,
-    };
-    setIsDragging(true);
-  };
-
-  const handlePointerMove = (event) => {
-    const dragStart = dragStartRef.current;
-    const bounds = mapRef.current?.getBoundingClientRect();
-
-    if (!dragStart || !bounds) return;
-
-    event.preventDefault();
-    const deltaX = ((event.clientX - dragStart.x) / bounds.width) * 100 / dragStart.zoomLevel * MAP_DRAG_SPEED;
-    const deltaY = ((event.clientY - dragStart.y) / bounds.height) * 100 / dragStart.zoomLevel * MAP_DRAG_SPEED;
-
-    setPan(clampMapPan({
-      x: dragStart.pan.x + deltaX,
-      y: dragStart.pan.y + deltaY,
-    }, dragStart.zoomLevel));
-  };
-
-  const endDrag = (event) => {
-    if (dragStartRef.current?.pointerId === event.pointerId) {
-      dragStartRef.current = null;
-      setIsDragging(false);
-    }
-  };
-
   return (
     <div
       ref={mapRef}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
       style={{
         position: "relative",
         width: "100%",
         aspectRatio: "959 / 593",
         overflow: "hidden",
         background: "radial-gradient(circle, rgba(255, 69, 0, 0.08) 0%, rgba(255, 107, 0, 0.03) 40%, transparent 50%)",
-        cursor: isDragging ? "grabbing" : "grab",
-        touchAction: "none",
+        touchAction: "manipulation",
         userSelect: "none",
       }}
     >
@@ -724,7 +771,8 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
           inset: 0,
           transform: mapTransform,
           transformOrigin: `${currentZoomOrigin.x}% ${currentZoomOrigin.y}%`,
-          transition: isDragging ? "none" : "transform 220ms ease-out",
+          transition: "transform 700ms cubic-bezier(0.22, 1, 0.36, 1), transform-origin 700ms cubic-bezier(0.22, 1, 0.36, 1)",
+          willChange: "transform, transform-origin",
         }}
       >
         <img
@@ -742,7 +790,12 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
             zIndex: 0,
           }}
         />
-        <StateHighlight selectedState={selectedState} />
+        <StateHighlight selectedState={highlightedState} />
+        <StateInteractionLayer
+          selectedState={selectedState}
+          onHoverState={setHoveredMapState}
+          onStateClick={onStateClick}
+        />
         {fires.map((fire, i) => {
           if (!fire.coords || fire.state === "AK" || fire.state === "HI") return null;
 
