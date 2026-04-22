@@ -24,9 +24,20 @@ const US_STATES_COORDS = {
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
 const MAP_WIDTH = 930;
 const MAP_HEIGHT = 600;
+const US_MAP_VIEWBOX = "0 0 959 593";
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 3.2;
 const MAP_DRAG_SPEED = 1.8;
+const statePathCache = new Map();
+const STATE_VIEW_ZOOM = {
+  AK: 1.35, TX: 1.65, CA: 1.75, MT: 1.9, NM: 1.95, AZ: 2,
+  NV: 2, CO: 2.05, OR: 2.05, WY: 2.05, ID: 2.05, UT: 2.05,
+  WA: 2.1, MN: 2.1, ND: 2.15, SD: 2.15, NE: 2.15, KS: 2.15,
+  OK: 2.15, MO: 2.2, AR: 2.2, LA: 2.2, MS: 2.2, AL: 2.2,
+  GA: 2.2, FL: 2.15, SC: 2.25, NC: 2.2, TN: 2.25, KY: 2.25,
+  VA: 2.25, WV: 2.35, PA: 2.25, NY: 2.2, ME: 2.25, MI: 2.1,
+  WI: 2.2, IA: 2.25, IL: 2.25, IN: 2.35, OH: 2.35, HI: 2.1,
+};
 
 const usProjection = geoAlbersUsa()
   .scale(1230)
@@ -77,6 +88,20 @@ function clampMapPan(pan, zoomLevel) {
     x: clamp(pan.x, -maxX, maxX),
     y: clamp(pan.y, -maxY, maxY),
   };
+}
+
+function getStateViewZoom(state) {
+  return STATE_VIEW_ZOOM[state] || 2.65;
+}
+
+function getStateViewPan(state, zoomLevel) {
+  const center = US_STATES_COORDS[state];
+  if (!center) return { x: 0, y: 0 };
+
+  return clampMapPan({
+    x: (50 - center[0]) / zoomLevel,
+    y: (50 - center[1]) / zoomLevel,
+  }, zoomLevel);
 }
 
 export default function FireTracker() {
@@ -183,6 +208,29 @@ export default function FireTracker() {
 
   const [zoomLevel, setZoomLevel] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [mapZoomOrigin, setMapZoomOrigin] = useState({ x: 50, y: 50 });
+  const [selectedMapState, setSelectedMapState] = useState("");
+
+  const handleMapStateChange = (state) => {
+    setSelectedMapState(state);
+
+    if (!state) {
+      setZoomLevel(1);
+      setPan({ x: 0, y: 0 });
+      setMapZoomOrigin({ x: 50, y: 50 });
+      return;
+    }
+
+    const center = US_STATES_COORDS[state];
+    const nextLevel = getStateViewZoom(state);
+
+    if (center) {
+      setMapZoomOrigin({ x: center[0], y: center[1] });
+    }
+
+    setZoomLevel(nextLevel);
+    setPan(getStateViewPan(state, nextLevel));
+  };
 
   return (
     <div style={{
@@ -270,6 +318,8 @@ export default function FireTracker() {
             <div style={{ flex: isMobile ? "0 0 auto" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
               <MapControls
                 zoomLevel={zoomLevel}
+                selectedState={selectedMapState}
+                onStateChange={handleMapStateChange}
                 onZoomIn={() => {
                   setZoomLevel((level) => {
                     const nextLevel = Math.min(MAX_MAP_ZOOM, Number((level + 0.2).toFixed(2)));
@@ -287,8 +337,10 @@ export default function FireTracker() {
                 onPanLeft={() => setPan((current) => clampMapPan({ ...current, x: current.x + 6 / zoomLevel }, zoomLevel))}
                 onPanRight={() => setPan((current) => clampMapPan({ ...current, x: current.x - 6 / zoomLevel }, zoomLevel))}
                 onReset={() => {
+                  setSelectedMapState("");
                   setZoomLevel(1);
                   setPan({ x: 0, y: 0 });
+                  setMapZoomOrigin({ x: 50, y: 50 });
                 }}
               />
               <USMap
@@ -320,6 +372,9 @@ export default function FireTracker() {
                 setZoomLevel={setZoomLevel}
                 pan={pan}
                 setPan={setPan}
+                zoomOrigin={mapZoomOrigin}
+                setZoomOrigin={setMapZoomOrigin}
+                selectedState={selectedMapState}
               />
             </div>
 
@@ -403,7 +458,7 @@ export default function FireTracker() {
 
 // --- SUB-COMPONENTS ---
 
-function MapControls({ zoomLevel, onZoomIn, onZoomOut, onPanLeft, onPanRight, onReset }) {
+function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoomOut, onPanLeft, onPanRight, onReset }) {
   return (
     <div
       style={{
@@ -418,7 +473,20 @@ function MapControls({ zoomLevel, onZoomIn, onZoomOut, onPanLeft, onPanRight, on
       <div style={{ color: "#8a6a55", fontSize: 10, letterSpacing: "0.14em" }}>
         MAP VIEW {Math.round(zoomLevel * 100)}%
       </div>
-      <div style={{ display: "flex", gap: 6 }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        <select
+          aria-label="Zoom to state"
+          value={selectedState}
+          onChange={(event) => onStateChange(event.target.value)}
+          style={mapSelectStyle}
+        >
+          <option value="">ALL STATES</option>
+          {US_STATE_OPTIONS.map((state) => (
+            <option key={state.value} value={state.value}>
+              {state.label.toUpperCase()}
+            </option>
+          ))}
+        </select>
         <button type="button" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut} style={mapControlBtnStyle}>-</button>
         <button type="button" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn} style={mapControlBtnStyle}>+</button>
         <button type="button" aria-label="Pan left" title="Pan left" onClick={onPanLeft} style={mapControlBtnStyle}>←</button>
@@ -429,11 +497,89 @@ function MapControls({ zoomLevel, onZoomIn, onZoomOut, onPanLeft, onPanRight, on
   );
 }
 
-function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, zoomLevel = 1, setZoomLevel, pan, setPan }) {
+function StateHighlight({ selectedState }) {
+  const [pathD, setPathD] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!selectedState) {
+      setPathD(null);
+      return;
+    }
+
+    const cachedPath = statePathCache.get(selectedState);
+    if (cachedPath) {
+      setPathD(cachedPath);
+      return;
+    }
+
+    (async () => {
+      try {
+        const response = await fetch("/us-map.svg");
+        if (!response.ok) throw new Error("Could not load state map");
+
+        const svgText = await response.text();
+        const svgDoc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+        const statePath = svgDoc.querySelector(`path.${selectedState.toLowerCase()}`);
+        const nextPathD = statePath?.getAttribute("d") || null;
+
+        if (nextPathD) statePathCache.set(selectedState, nextPathD);
+        if (!cancelled) setPathD(nextPathD);
+      } catch {
+        if (!cancelled) setPathD(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedState]);
+
+  if (!selectedState || !pathD) return null;
+
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox={US_MAP_VIEWBOX}
+      preserveAspectRatio="none"
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        zIndex: 1,
+      }}
+    >
+      <path
+        d={pathD}
+        fill="rgba(255, 107, 0, 0.16)"
+        stroke="rgba(255, 107, 0, 0.55)"
+        strokeWidth="8"
+        vectorEffect="non-scaling-stroke"
+        style={{ filter: "drop-shadow(0 0 7px rgba(255, 107, 0, 0.65))" }}
+      />
+      <path
+        className="state-focus-trace"
+        d={pathD}
+        fill="none"
+        pathLength={1}
+        stroke="#ffcc66"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="3"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, zoomLevel = 1, setZoomLevel, pan, setPan, zoomOrigin, setZoomOrigin, selectedState }) {
   const mapRef = useRef(null);
   const dragStartRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
+  const currentZoomOrigin = zoomOrigin || { x: 50, y: 50 };
   const currentPan = pan || { x: 0, y: 0 };
   const mapTransform = `translate(${currentPan.x}%, ${currentPan.y}%) scale(${zoomLevel})`;
   const markerBaseSize = isMobile ? 7 : 9;
@@ -548,6 +694,10 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
           0%, 100% { box-shadow: 0 0 0px rgba(255, 107, 0, 0), inset 0 0 0px rgba(255, 107, 0, 0); }
           50% { box-shadow: 0 0 8px rgba(255, 107, 0, 0.4), inset 0 0 4px rgba(255, 107, 0, 0.2); }
         }
+        @keyframes traceState {
+          0% { stroke-dashoffset: 1; opacity: 0.35; }
+          100% { stroke-dashoffset: 0; opacity: 1; }
+        }
         .scan-beam {
           position: absolute;
           top: 0;
@@ -562,13 +712,18 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
         .fire-marker-breathing {
           animation: breathe 0.8s ease-in-out infinite;
         }
+        .state-focus-trace {
+          stroke-dasharray: 1;
+          stroke-dashoffset: 1;
+          animation: traceState 800ms ease-out forwards;
+        }
       `}</style>
       <div
         style={{
           position: "absolute",
           inset: 0,
           transform: mapTransform,
-          transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+          transformOrigin: `${currentZoomOrigin.x}% ${currentZoomOrigin.y}%`,
           transition: isDragging ? "none" : "transform 220ms ease-out",
         }}
       >
@@ -584,8 +739,10 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
             opacity: 0.3,
             filter: "invert(1)",
             pointerEvents: "none",
+            zIndex: 0,
           }}
         />
+        <StateHighlight selectedState={selectedState} />
         {fires.map((fire, i) => {
           if (!fire.coords || fire.state === "AK" || fire.state === "HI") return null;
 
@@ -662,6 +819,20 @@ const mapResetBtnStyle = {
   color: "#7dc06c",
   fontSize: 10,
   letterSpacing: "0.08em",
+};
+
+const mapSelectStyle = {
+  height: 30,
+  minWidth: 150,
+  background: "#151519",
+  border: "1px solid #333",
+  color: "#d4b090",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: 10,
+  letterSpacing: "0.06em",
+  padding: "0 8px",
 };
 
 const inputStyle = {
