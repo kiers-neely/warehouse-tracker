@@ -493,7 +493,7 @@ function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoom
   );
 }
 
-function StateHighlight({ selectedState }) {
+function StateHighlight({ selectedState, isMobile }) {
   const [pathD, setPathD] = useState(null);
 
   useEffect(() => {
@@ -534,6 +534,12 @@ function StateHighlight({ selectedState }) {
 
   if (!selectedState || !pathD) return null;
 
+  const glowStrokeWidth = isMobile ? 5 : 8;
+  const traceStrokeWidth = isMobile ? 1.25 : 2;
+  const glowShadow = isMobile
+    ? "drop-shadow(0 0 4px rgba(255, 107, 0, 0.55))"
+    : "drop-shadow(0 0 7px rgba(255, 107, 0, 0.65))";
+
   return (
     <svg
       aria-hidden="true"
@@ -552,9 +558,9 @@ function StateHighlight({ selectedState }) {
         d={pathD}
         fill="rgba(255, 107, 0, 0.16)"
         stroke="rgba(255, 107, 0, 0.55)"
-        strokeWidth="8"
+        strokeWidth={glowStrokeWidth}
         vectorEffect="non-scaling-stroke"
-        style={{ filter: "drop-shadow(0 0 7px rgba(255, 107, 0, 0.65))" }}
+        style={{ filter: glowShadow }}
       />
       <path
         className="state-focus-trace"
@@ -564,7 +570,7 @@ function StateHighlight({ selectedState }) {
         stroke="#ffcc66"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="2"
+        strokeWidth={traceStrokeWidth}
         strokeOpacity="0.5"
         vectorEffect="non-scaling-stroke"
       />
@@ -790,7 +796,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
             zIndex: 0,
           }}
         />
-        <StateHighlight selectedState={highlightedState} />
+        <StateHighlight selectedState={highlightedState} isMobile={isMobile} />
         <StateInteractionLayer
           selectedState={selectedState}
           onHoverState={setHoveredMapState}
