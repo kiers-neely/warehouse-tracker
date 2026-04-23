@@ -8,6 +8,55 @@ const supabaseAdmin = createClient(
 
 export const maxDuration = 60;
 
+const PUBLIC_SUBMISSION_LIMIT = 10;
+const PUBLIC_SUBMISSION_WINDOW_MS = 60 * 60 * 1000;
+const publicSubmissionRateLimit =
+  globalThis.publicSubmissionRateLimit instanceof Map
+    ? globalThis.publicSubmissionRateLimit
+    : new Map();
+
+globalThis.publicSubmissionRateLimit = publicSubmissionRateLimit;
+
+function getClientIp(request) {
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  if (forwardedFor) return forwardedFor.split(",")[0].trim();
+
+  return (
+    request.headers.get("x-real-ip") ||
+    request.headers.get("cf-connecting-ip") ||
+    "unknown"
+  );
+}
+
+function checkPublicSubmissionRateLimit(request) {
+  const clientIp = getClientIp(request);
+  const now = Date.now();
+  const windowStart = now - PUBLIC_SUBMISSION_WINDOW_MS;
+  const recentSubmissions = (publicSubmissionRateLimit.get(clientIp) || [])
+    .filter((timestamp) => timestamp > windowStart);
+
+  if (recentSubmissions.length >= PUBLIC_SUBMISSION_LIMIT) {
+    const oldestSubmission = Math.min(...recentSubmissions);
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((oldestSubmission + PUBLIC_SUBMISSION_WINDOW_MS - now) / 1000)
+    );
+
+    return {
+      allowed: false,
+      retryAfterSeconds,
+    };
+  }
+
+  recentSubmissions.push(now);
+  publicSubmissionRateLimit.set(clientIp, recentSubmissions);
+
+  return {
+    allowed: true,
+    retryAfterSeconds: 0,
+  };
+}
+
 function normalizeIncidentLocation(fireData) {
   const city = fireData.city?.trim();
   const state = fireData.state?.trim().toUpperCase();
@@ -272,6 +321,20 @@ export async function POST(request) {
   // --- LOGIC 3: PUBLIC SUBMISSION ---
   // No password needed, but status is strictly forced to 'pending'
   try {
+    const rateLimit = checkPublicSubmissionRateLimit(request);
+
+    if (!rateLimit.allowed) {
+      return Response.json(
+        { error: "Too many submissions. Please try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds),
+          },
+        }
+      );
+    }
+
     const incidentPayload = await buildIncidentPayload(fireData, 'pending');
     
     const { data, error } = await supabaseAdmin
