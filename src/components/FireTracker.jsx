@@ -29,6 +29,8 @@ const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 3.2;
 const MAP_PAN_BOUND_MULTIPLIER = 1.85;
 const STATE_FOCUS_ZOOM_MULTIPLIER = 1.22;
+const RIGHT_CLICK_PAN_SPEED = 1.4;
+const TRACKPAD_PAN_SPEED = 0.20;
 const statePathCache = new Map();
 const stateInteractionPathCache = [];
 const STATE_VIEW_ZOOM = {
@@ -340,16 +342,6 @@ export default function FireTracker() {
                   setMapZoomOrigin({ x: 50, y: 50 });
                 }}
               />
-              <div
-                style={{
-                  color: "#8a6a55",
-                  fontSize: 10,
-                  letterSpacing: "0.06em",
-                  margin: "-4px 0 10px",
-                }}
-              >
-                Click any state to zoom in and view incident summary list.
-              </div>
               <USMap
                 fires={fires.map((f, i) => {
                   const state = f.state || (f.location?.match(/,\s*([A-Z]{2})$/)?.[1] ?? null);
@@ -478,8 +470,13 @@ function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoom
         flexWrap: "wrap",
       }}
     >
-      <div style={{ color: "#8a6a55", fontSize: 10, letterSpacing: "0.14em" }}>
-        MAP VIEW {Math.round(zoomLevel * 100)}%
+      <div style={{ color: "#8a6a55", display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ fontSize: 10, letterSpacing: "0.14em" }}>
+          MAP VIEW: {Math.round(zoomLevel * 100)}%
+        </div>
+        <div style={{ fontSize: 11, fontWeight: "bold", color: "#d4b090", letterSpacing: "0.06em" }}>
+          Click a state for summary view, or zoom/pain to explore the map
+        </div>
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
         <select
@@ -691,19 +688,21 @@ function StateIncidentPopup({ selectedState, fires, isMobile }) {
     <div
       style={{
         position: "absolute",
-        top: isMobile ? 8 : 12,
-        right: isMobile ? 8 : 12,
-        width: isMobile ? "min(72vw, 260px)" : 260,
-        maxHeight: isMobile ? "45%" : "58%",
+        top: isMobile ? 0 : 12,
+        left: isMobile ? 0 : "auto",
+        right: isMobile ? "auto" : 12,
+        bottom: isMobile ? "auto" : "auto",
+        width: isMobile ? "min(38vw, 150px)" : 260,
+        maxHeight: isMobile ? "none" : "58%",
         overflowY: "auto",
-        background: "rgba(0, 0, 0, 0.86)",
+        background: isMobile ? "rgba(0, 0, 0, 0.78)" : "rgba(0, 0, 0, 0.86)",
         border: "1px solid #333",
-        borderRadius: 4,
+        borderRadius: isMobile ? "0 4px 4px 0" : 4,
         boxShadow: "0 0 18px rgba(255, 107, 0, 0.2)",
         color: "#d4b090",
-        fontSize: isMobile ? 9 : 10,
-        lineHeight: 1.45,
-        padding: isMobile ? "8px 10px" : "10px 12px",
+        fontSize: isMobile ? 8 : 10,
+        lineHeight: isMobile ? 1.3 : 1.45,
+        padding: isMobile ? "8px 7px" : "10px 12px",
         pointerEvents: "auto",
         zIndex: 5,
       }}
@@ -712,7 +711,7 @@ function StateIncidentPopup({ selectedState, fires, isMobile }) {
         style={{
           color: "#ffcc66",
           fontFamily: "'Bebas Neue', sans-serif",
-          fontSize: isMobile ? 18 : 22,
+          fontSize: isMobile ? 16 : 22,
           letterSpacing: "0.08em",
           lineHeight: 1,
           marginBottom: 7,
@@ -721,15 +720,15 @@ function StateIncidentPopup({ selectedState, fires, isMobile }) {
         {selectedStateLabel.toUpperCase()}
       </div>
       {stateIncidents.length > 0 ? (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: isMobile ? 4 : 5 }}>
           {stateIncidents.map((fire) => {
             const city = fire.city || fire.location?.replace(/,\s*[A-Z]{2}$/, "") || "Unknown";
             const buildingType = fire.facility_type || "Unknown building type";
 
             return (
-              <li key={fire.id} style={{ display: "flex", gap: 6 }}>
+              <li key={fire.id} style={{ display: "flex", gap: isMobile ? 4 : 6 }}>
                 <span style={{ color: "#ff6a00", flex: "0 0 auto" }}>•</span>
-                <span>
+                <span style={{ minWidth: 0 }}>
                   <span style={{ color: "#f0d1b3" }}>{city}</span>
                   <span style={{ color: "#8a6a55" }}> - {buildingType}</span>
                 </span>
@@ -746,6 +745,10 @@ function StateIncidentPopup({ selectedState, fires, isMobile }) {
 
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, zoomLevel = 1, setZoomLevel, pan, setPan, zoomOrigin, setZoomOrigin, selectedState, onStateClick }) {
   const mapRef = useRef(null);
+  const rightPanStartRef = useRef(null);
+  const activeTouchPointersRef = useRef(new Map());
+  const pinchStartRef = useRef(null);
+  const [isRightPanning, setIsRightPanning] = useState(false);
   const [hoveredMapState, setHoveredMapState] = useState(null);
   const currentZoomOrigin = zoomOrigin || { x: 50, y: 50 };
   const currentPan = pan || { x: 0, y: 0 };
@@ -766,8 +769,17 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
       const bounds = mapElement.getBoundingClientRect();
       const pointerX = ((event.clientX - bounds.left) / bounds.width) * 100;
       const pointerY = ((event.clientY - bounds.top) / bounds.height) * 100;
+
+      if (!event.ctrlKey) {
+        setPan((current) => clampMapPan({
+          x: current.x - (event.deltaX * TRACKPAD_PAN_SPEED) / zoomLevel,
+          y: current.y - (event.deltaY * TRACKPAD_PAN_SPEED) / zoomLevel,
+        }, zoomLevel));
+        return;
+      }
+
       const direction = event.deltaY > 0 ? -1 : 1;
-      const step = event.ctrlKey ? 0.12 : Math.abs(event.deltaY) > 60 ? 0.2 : 0.1;
+      const step = Math.max(0.06, Math.min(0.18, Math.abs(event.deltaY) * 0.01));
 
       setZoomOrigin({
         x: clamp(pointerX, 0, 100),
@@ -794,18 +806,152 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
       mapElement.removeEventListener("gesturestart", preventBrowserGestureZoom);
       mapElement.removeEventListener("gesturechange", preventBrowserGestureZoom);
     };
-  }, [currentPan.x, currentPan.y, setPan, setZoomLevel]);
+  }, [setPan, setZoomLevel, zoomLevel]);
+
+  const getMapPointerPercent = (clientX, clientY) => {
+    const bounds = mapRef.current?.getBoundingClientRect();
+    if (!bounds) return { x: 50, y: 50 };
+
+    return {
+      x: clamp(((clientX - bounds.left) / bounds.width) * 100, 0, 100),
+      y: clamp(((clientY - bounds.top) / bounds.height) * 100, 0, 100),
+    };
+  };
+
+  const getTouchPointers = () => Array.from(activeTouchPointersRef.current.values());
+
+  const getTouchDistance = (first, second) => {
+    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
+  };
+
+  const getTouchCenter = (first, second) => {
+    return {
+      clientX: (first.clientX + second.clientX) / 2,
+      clientY: (first.clientY + second.clientY) / 2,
+    };
+  };
+
+  const handlePointerDown = (event) => {
+    if (event.pointerType === "touch") {
+      activeTouchPointersRef.current.set(event.pointerId, {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {}
+
+      const touches = getTouchPointers();
+      if (touches.length === 2) {
+        event.preventDefault();
+        const center = getTouchCenter(touches[0], touches[1]);
+        pinchStartRef.current = {
+          distance: getTouchDistance(touches[0], touches[1]),
+          zoomLevel,
+        };
+        setZoomOrigin(getMapPointerPercent(center.clientX, center.clientY));
+      }
+      return;
+    }
+
+    if (event.button === 2) {
+      event.preventDefault();
+      rightPanStartRef.current = {
+        x: event.clientX,
+        pan: currentPan,
+        zoomLevel,
+      };
+      setIsRightPanning(true);
+
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {}
+    }
+  };
+
+  const handlePointerMove = (event) => {
+    if (event.pointerType === "touch") {
+      if (!activeTouchPointersRef.current.has(event.pointerId)) return;
+
+      event.preventDefault();
+      activeTouchPointersRef.current.set(event.pointerId, {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+
+      const touches = getTouchPointers();
+      if (touches.length < 2) return;
+
+      const pinchStart = pinchStartRef.current;
+      const currentDistance = getTouchDistance(touches[0], touches[1]);
+      const center = getTouchCenter(touches[0], touches[1]);
+
+      if (!pinchStart || pinchStart.distance <= 0) {
+        pinchStartRef.current = {
+          distance: currentDistance,
+          zoomLevel,
+        };
+        return;
+      }
+
+      const nextLevel = clamp(
+        Number((pinchStart.zoomLevel * (currentDistance / pinchStart.distance)).toFixed(2)),
+        MIN_MAP_ZOOM,
+        MAX_MAP_ZOOM
+      );
+
+      setZoomOrigin(getMapPointerPercent(center.clientX, center.clientY));
+      setZoomLevel(nextLevel);
+      setPan((current) => clampMapPan(current, nextLevel));
+      return;
+    }
+
+    const rightPanStart = rightPanStartRef.current;
+    const bounds = mapRef.current?.getBoundingClientRect();
+
+    if (!rightPanStart || !bounds) return;
+
+    event.preventDefault();
+    const deltaX = ((event.clientX - rightPanStart.x) / bounds.width) * 100 / rightPanStart.zoomLevel * RIGHT_CLICK_PAN_SPEED;
+
+    setPan(clampMapPan({
+      x: rightPanStart.pan.x + deltaX,
+      y: rightPanStart.pan.y,
+    }, rightPanStart.zoomLevel));
+  };
+
+  const handlePointerEnd = (event) => {
+    if (event.pointerType === "touch") {
+      activeTouchPointersRef.current.delete(event.pointerId);
+
+      if (activeTouchPointersRef.current.size < 2) {
+        pinchStartRef.current = null;
+      }
+    }
+
+    if (rightPanStartRef.current) {
+      rightPanStartRef.current = null;
+      setIsRightPanning(false);
+    }
+  };
 
   return (
     <div
       ref={mapRef}
+      onContextMenu={(event) => event.preventDefault()}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
       style={{
         position: "relative",
         width: "100%",
         aspectRatio: "959 / 593",
         overflow: "hidden",
         background: "radial-gradient(circle, rgba(255, 68, 0, 0.22) 0%, rgba(0, 0, 0, 0.05) 50%, transparent 90%)",
-        touchAction: "manipulation",
+        cursor: isRightPanning ? "ew-resize" : "default",
+        touchAction: "none",
         userSelect: "none",
       }}
     >
