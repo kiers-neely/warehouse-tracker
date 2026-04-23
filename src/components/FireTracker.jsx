@@ -670,6 +670,70 @@ function StateInteractionLayer({ selectedState, onHoverState, onStateClick }) {
   );
 }
 
+function StateIncidentPopup({ selectedState, fires, isMobile }) {
+  if (!selectedState) return null;
+
+  const selectedStateLabel =
+    US_STATE_OPTIONS.find((state) => state.value === selectedState)?.label || selectedState;
+  const stateIncidents = fires.filter((fire) => fire.state === selectedState);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: isMobile ? 8 : 12,
+        right: isMobile ? 8 : 12,
+        width: isMobile ? "min(72vw, 260px)" : 260,
+        maxHeight: isMobile ? "45%" : "58%",
+        overflowY: "auto",
+        background: "rgba(0, 0, 0, 0.86)",
+        border: "1px solid #333",
+        borderRadius: 4,
+        boxShadow: "0 0 18px rgba(255, 107, 0, 0.2)",
+        color: "#d4b090",
+        fontSize: isMobile ? 9 : 10,
+        lineHeight: 1.45,
+        padding: isMobile ? "8px 10px" : "10px 12px",
+        pointerEvents: "auto",
+        zIndex: 5,
+      }}
+    >
+      <div
+        style={{
+          color: "#ffcc66",
+          fontFamily: "'Bebas Neue', sans-serif",
+          fontSize: isMobile ? 18 : 22,
+          letterSpacing: "0.08em",
+          lineHeight: 1,
+          marginBottom: 7,
+        }}
+      >
+        {selectedStateLabel.toUpperCase()}
+      </div>
+      {stateIncidents.length > 0 ? (
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+          {stateIncidents.map((fire) => {
+            const city = fire.city || fire.location?.replace(/,\s*[A-Z]{2}$/, "") || "Unknown";
+            const buildingType = fire.facility_type || "Unknown building type";
+
+            return (
+              <li key={fire.id} style={{ display: "flex", gap: 6 }}>
+                <span style={{ color: "#ff6a00", flex: "0 0 auto" }}>•</span>
+                <span>
+                  <span style={{ color: "#f0d1b3" }}>{city}</span>
+                  <span style={{ color: "#8a6a55" }}> - {buildingType}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div style={{ color: "#8a6a55" }}>No incidents listed.</div>
+      )}
+    </div>
+  );
+}
+
 function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, zoomLevel = 1, setZoomLevel, pan, setPan, zoomOrigin, setZoomOrigin, selectedState, onStateClick }) {
   const mapRef = useRef(null);
   const [hoveredMapState, setHoveredMapState] = useState(null);
@@ -845,6 +909,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
           );
         })}
       </div>
+      <StateIncidentPopup selectedState={selectedState} fires={fires} isMobile={isMobile} />
       <div className="scan-beam"></div>
     </div>
   );
