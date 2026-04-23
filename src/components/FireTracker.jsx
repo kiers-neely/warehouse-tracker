@@ -340,6 +340,16 @@ export default function FireTracker() {
                   setMapZoomOrigin({ x: 50, y: 50 });
                 }}
               />
+              <div
+                style={{
+                  color: "#8a6a55",
+                  fontSize: 10,
+                  letterSpacing: "0.06em",
+                  margin: "-4px 0 10px",
+                }}
+              >
+                Click any state to zoom in and view incident summary list.
+              </div>
               <USMap
                 fires={fires.map((f, i) => {
                   const state = f.state || (f.location?.match(/,\s*([A-Z]{2})$/)?.[1] ?? null);
