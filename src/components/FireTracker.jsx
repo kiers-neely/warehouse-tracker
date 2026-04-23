@@ -566,7 +566,6 @@ function StateHighlight({ selectedState, isMobile }) {
         className="state-focus-trace"
         d={pathD}
         fill="none"
-        pathLength={1}
         stroke="#ffcc66"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -731,7 +730,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
         width: "100%",
         aspectRatio: "959 / 593",
         overflow: "hidden",
-        background: "radial-gradient(circle, rgba(255, 69, 0, 0.08) 0%, rgba(255, 106, 0, 0.15) 20%, transparent 80%)",
+        background: "radial-gradient(circle, rgba(255, 68, 0, 0.22) 0%, rgba(0, 0, 0, 0.05) 50%, transparent 90%)",
         touchAction: "manipulation",
         userSelect: "none",
       }}
@@ -748,7 +747,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
           50% { box-shadow: 0 0 8px rgba(255, 107, 0, 0.4), inset 0 0 4px rgba(255, 107, 0, 0.2); }
         }
         @keyframes traceState {
-          0% { stroke-dashoffset: 1; opacity: 0.35; }
+          0% { stroke-dashoffset: 4000; opacity: 0.35; }
           100% { stroke-dashoffset: 0; opacity: 1; }
         }
         .scan-beam {
@@ -766,9 +765,9 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
           animation: breathe 0.8s ease-in-out infinite;
         }
         .state-focus-trace {
-          stroke-dasharray: 1;
-          stroke-dashoffset: 1;
-          animation: traceState 800ms ease-out forwards;
+          stroke-dasharray: 4000;
+          stroke-dashoffset: 4000;
+          animation: traceState 900ms ease-out forwards;
         }
       `}</style>
       <div
