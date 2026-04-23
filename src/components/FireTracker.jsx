@@ -471,11 +471,11 @@ function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoom
       }}
     >
       <div style={{ color: "#8a6a55", display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ fontSize: 10, letterSpacing: "0.14em" }}>
-          MAP VIEW: {Math.round(zoomLevel * 100)}%
+        <div style={{ fontSize: 11, fontWeight: "bold", letterSpacing: "0.14em" }}>
+          INTERACTIVE MAP
         </div>
-        <div style={{ fontSize: 11, fontWeight: "bold", color: "#d4b090", letterSpacing: "0.06em" }}>
-          Click a state for summary view, or zoom/pain to explore the map
+        <div style={{ fontSize: 11, color: "#d4b090", letterSpacing: "0.06em" }}>
+          Click/tap state to view incident summary
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -494,6 +494,7 @@ function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoom
         </select>
         <button type="button" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut} style={mapControlBtnStyle}>-</button>
         <button type="button" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn} style={mapControlBtnStyle}>+</button>
+        <button type="button" aria-label="Current map view" title="Map view" style={mapZoomBtnStyle}>{Math.round(zoomLevel * 100)}%</button>
         <button type="button" aria-label="Reset map view" title="Reset map view" onClick={onReset} style={mapResetBtnStyle}>RESET</button>
       </div>
     </div>
@@ -1089,6 +1090,15 @@ const mapControlBtnStyle = {
   fontFamily: "inherit",
   fontSize: 15,
   lineHeight: 1,
+};
+
+const mapZoomBtnStyle = {
+  ...mapControlBtnStyle,
+  width: "auto",
+  padding: "0 9px",
+  color: "#ff8c00",
+  fontSize: 10,
+  letterSpacing: "0.08em",
 };
 
 const mapResetBtnStyle = {
