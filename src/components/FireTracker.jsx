@@ -31,6 +31,7 @@ const MAP_PAN_BOUND_MULTIPLIER = 1.85;
 const STATE_FOCUS_ZOOM_MULTIPLIER = 1.22;
 const RIGHT_CLICK_PAN_SPEED = 1.4;
 const TRACKPAD_PAN_SPEED = 0.20;
+const SCAN_BEAM_DURATION_MS = 6000;
 const statePathCache = new Map();
 const stateInteractionPathCache = [];
 const STATE_VIEW_ZOOM = {
@@ -140,7 +141,7 @@ export default function FireTracker() {
   }, []);
 
   // Fetch approved fires for the map
-  const fetchApprovedFires = useCallback(async () => {
+  const fetchApprovedFires = useCallback(async ({ playScan = false } = {}) => {
     setStatus("loading");
     try {
       const res = await fetch("/api/scan"); 
@@ -171,6 +172,9 @@ export default function FireTracker() {
       knownIncidentIdsRef.current = nextIds;
       hasLoadedIncidentsRef.current = true;
       setFires(incidents);
+      if (playScan) {
+        setScanBeamRun((current) => current + 1);
+      }
       setStatus("idle");
     } catch (e) {
       setErrorMsg(e.message);
@@ -178,7 +182,7 @@ export default function FireTracker() {
     }
   }, []);
 
-  useEffect(() => { fetchApprovedFires(); }, [fetchApprovedFires]);
+  useEffect(() => { fetchApprovedFires({ playScan: true }); }, [fetchApprovedFires]);
 
   // Submission Handler (Public or Admin)
   const handleSubmit = async (e) => {
@@ -215,6 +219,7 @@ export default function FireTracker() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [mapZoomOrigin, setMapZoomOrigin] = useState({ x: 50, y: 50 });
   const [selectedMapState, setSelectedMapState] = useState("");
+  const [scanBeamRun, setScanBeamRun] = useState(0);
 
   const handleMapStateChange = (state) => {
     setSelectedMapState(state);
@@ -288,7 +293,7 @@ export default function FireTracker() {
             <button onClick={() => setView(view === "report" ? "map" : "report")} style={navBtnStyle}>
               {view === "report" ? "✕ CLOSE" : "✚ REPORT FIRE"}
             </button>
-            <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
+            <button onClick={() => fetchApprovedFires({ playScan: true })} style={navBtnStyle}>↺ REFRESH</button>
             <div style={{ background: "#1a0a05", border: "1px solid #a04a2a", borderRadius: 4, padding: "6px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
               <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
@@ -300,7 +305,7 @@ export default function FireTracker() {
               <button onClick={() => setView(view === "report" ? "map" : "report")} style={navBtnStyle}>
                 {view === "report" ? "✕ CLOSE" : "✚ REPORT FIRE"}
               </button>
-              <button onClick={fetchApprovedFires} style={navBtnStyle}>↺ REFRESH</button>
+              <button onClick={() => fetchApprovedFires({ playScan: true })} style={navBtnStyle}>↺ REFRESH</button>
             </div>
             <div style={{ background: "#1a0a05", border: "1px solid #a04a2a", borderRadius: 4, padding: "6px 12px", display: "flex", flexDirection: "row", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
@@ -375,6 +380,7 @@ export default function FireTracker() {
                 setZoomOrigin={setMapZoomOrigin}
                 selectedState={selectedMapState}
                 onStateClick={handleMapStateChange}
+                scanBeamRun={scanBeamRun}
               />
             </div>
 
@@ -744,13 +750,14 @@ function StateIncidentPopup({ selectedState, fires, isMobile }) {
   );
 }
 
-function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, zoomLevel = 1, setZoomLevel, pan, setPan, zoomOrigin, setZoomOrigin, selectedState, onStateClick }) {
+function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, zoomLevel = 1, setZoomLevel, pan, setPan, zoomOrigin, setZoomOrigin, selectedState, onStateClick, scanBeamRun }) {
   const mapRef = useRef(null);
   const rightPanStartRef = useRef(null);
   const activeTouchPointersRef = useRef(new Map());
   const pinchStartRef = useRef(null);
   const [isRightPanning, setIsRightPanning] = useState(false);
   const [hoveredMapState, setHoveredMapState] = useState(null);
+  const [showScanBeam, setShowScanBeam] = useState(false);
   const currentZoomOrigin = zoomOrigin || { x: 50, y: 50 };
   const currentPan = pan || { x: 0, y: 0 };
   const highlightedState = selectedState || hoveredMapState;
@@ -808,6 +815,19 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
       mapElement.removeEventListener("gesturechange", preventBrowserGestureZoom);
     };
   }, [setPan, setZoomLevel, zoomLevel]);
+
+  useEffect(() => {
+    if (!scanBeamRun) return;
+
+    setShowScanBeam(true);
+    const timeoutId = window.setTimeout(() => {
+      setShowScanBeam(false);
+    }, SCAN_BEAM_DURATION_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [scanBeamRun]);
 
   const getMapPointerPercent = (clientX, clientY) => {
     const bounds = mapRef.current?.getBoundingClientRect();
@@ -961,7 +981,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
           0% { left: -5%; opacity: 0; }
           10% { opacity: 1; }
           90% { opacity: 1; }
-          100% { left: 102%; opacity: 0; }
+          100% { left: 105%; opacity: 0; }
         }
         @keyframes breathe {
           0%, 100% { box-shadow: 0 0 0px rgba(255, 107, 0, 0), inset 0 0 0px rgba(255, 107, 0, 0); }
@@ -978,7 +998,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
           height: 100%;
           background: linear-gradient(90deg, transparent, rgba(255, 107, 0, 0.6), transparent);
           box-shadow: 0 0 20px rgba(255, 107, 0, 0.4);
-          animation: scanBeam 6s ease-in-out infinite;
+          animation: scanBeam 6s ease-in-out 1 forwards;
           pointer-events: none;
           z-index: 3;
         }
@@ -1067,7 +1087,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
         })}
       </div>
       <StateIncidentPopup selectedState={selectedState} fires={fires} isMobile={isMobile} />
-      <div className="scan-beam"></div>
+      {showScanBeam && <div className="scan-beam"></div>}
     </div>
   );
 }
