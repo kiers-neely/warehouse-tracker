@@ -22,8 +22,8 @@ const US_STATES_COORDS = {
 };
 
 const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
-const MAP_WIDTH = 930;
-const MAP_HEIGHT = 600;
+const MAP_WIDTH = 959;
+const MAP_HEIGHT = 593;
 const US_MAP_VIEWBOX = "0 0 959 593";
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 3.2;
@@ -45,8 +45,8 @@ const STATE_VIEW_ZOOM = {
 };
 
 const usProjection = geoAlbersUsa()
-  .scale(1230)
-  .translate([MAP_WIDTH / 2, MAP_HEIGHT / 2]);
+  .scale(1250)
+  .translate([MAP_WIDTH / 2.03, MAP_HEIGHT / 2.05]);
 
 function latLngToSVG(lat, lng) {
   const point = usProjection([lng, lat]);
