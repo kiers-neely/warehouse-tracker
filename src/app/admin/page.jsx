@@ -119,7 +119,7 @@ export default function ModerationPage() {
   return (
     <div style={containerStyle}>
       <div style={{ width: "100%", maxWidth: "800px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", flexDirection: "row", justifyContent: "flex-start", gap: 10, alignItems: "center", marginBottom: 20 }}>
           <h1 style={{ color: "#ff4500" }}>Pending Submissions ({pending.length})</h1>
           <button onClick={() => window.location.href = "/"} style={secondaryBtn}>Back to Map</button>
           <button
@@ -206,9 +206,9 @@ export default function ModerationPage() {
 // --- STYLES ---
 const containerStyle = { minHeight: "100vh", background: "#0a0a0f", color: "white", padding: "40px 20px", display: "flex", justifyContent: "center", fontFamily: "monospace" };
 const cardStyle = { background: "#121217", padding: 30, borderRadius: 8, border: "1px solid #222", textAlign: "center", width: "100%", maxWidth: "400px" };
-const inputStyle = { width: "100%", padding: 12, margin: "20px 0", background: "#000", border: "1px solid #333", color: "white", borderRadius: 4 };
+const inputStyle = { width: "100%", padding: 12, margin: "20px 0", background: "#000", border: "1px solid #333", color: "white", borderRadius: 4, fontFamily: "monospace" };
 const btnStyle = { width: "100%", padding: 12, background: "#ff4500", border: "none", color: "white", fontWeight: "bold", cursor: "pointer", borderRadius: 4 };
-const itemStyle = { background: "#121217", padding: 20, borderRadius: 8, border: "1px solid #222", display: "flex", justifyContent: "space-between", alignItems: "center" };
+const itemStyle = { background: "#121217", padding: 20, borderRadius: 8, border: "1px solid #222", display: "flex", width: "80%", justifyContent: "space-between", alignItems: "center" };
 const approveBtn = { background: "#2e7d32", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontWeight: "bold" };
 const deleteBtn = { background: "#c62828", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontWeight: "bold" };
-const secondaryBtn = { background: "transparent", border: "1px solid #333", color: "#666", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 };
+const secondaryBtn = { background: "transparent", border: "1px solid #333", color: "#666", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontFamily: "monospace" };
