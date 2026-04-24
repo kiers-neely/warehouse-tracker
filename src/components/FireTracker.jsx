@@ -1057,7 +1057,16 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
               key={fire.id}
               onMouseEnter={() => setHoveredFire(fire)}
               onMouseLeave={() => setHoveredFire(null)}
+              onClick={() => onStateClick(fire.state)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                onStateClick(fire.state);
+              }}
               className="fire-marker-breathing"
+              role="button"
+              tabIndex={0}
+              aria-label={`Focus ${fire.location}`}
               style={{
                 position: "absolute",
                 left: `${x}%`,
