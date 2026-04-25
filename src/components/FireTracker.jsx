@@ -481,7 +481,7 @@ function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoom
           INTERACTIVE MAP
         </div>
         <div style={{ fontSize: 11, color: "#d4b090", letterSpacing: "0.06em" }}>
-          Click state or incident marker to enter summary view. Click "RESET" to return to full map.
+          Click state or incident marker to enter summary view.
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
