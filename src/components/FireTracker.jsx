@@ -283,7 +283,7 @@ export default function FireTracker() {
           >
             US WAREHOUSE FIRE TRACKER 🔥
           </div>
-          <div style={{ fontSize: "14px", color: "#a07868", letterSpacing: "0.2em", textAlign: isMobile ? "center" : undefined }}>
+          <div style={{ fontSize: "14px", color: "#d4b090", letterSpacing: "0.2em", textAlign: isMobile ? "center" : undefined }}>
             CROWDSOURCED INDUSTRIAL INCIDENT MAP
           </div>
         </div>
@@ -321,7 +321,7 @@ export default function FireTracker() {
         {view === "map" ? (
           <>
             {/* Map Column */}
-            <div style={{ flex: isMobile ? "0 0 auto" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 20 }}>
+            <div style={{ flex: isMobile ? "0 0 auto" : "0 0 60%", borderRight: "1px solid #1a0f08", position: "relative", padding: 15 }}>
               <MapControls
                 zoomLevel={zoomLevel}
                 selectedState={selectedMapState}
@@ -382,11 +382,14 @@ export default function FireTracker() {
                 onStateClick={handleMapStateChange}
                 scanBeamRun={scanBeamRun}
               />
+              <div style={{ marginTop: 10, fontSize: 11, color: "#a07868", letterSpacing: "0.1em" }}>
+                CLICK STATE, CITY, OR SELECT FROM DROPDOWN BOX FOR SUMMARY VIEW • SCROLL TO ZOOM/PAN • CLICK RESET TO RETURN
+              </div>
             </div>
 
             {/* Log Column */}
             <div style={{ flex: isMobile ? "1" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
-              <div style={{ padding: 12, color: "#8a6a55", borderBottom: "1px solid #1a1a1f",
+              <div style={{ padding: 12, color: "#a07868", borderBottom: "1px solid #1a1a1f",
                 display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 26, fontFamily: "'Bebas Neue',sans-serif", letterSpacing: "0.1em", verticalAlign: "middle", marginBottom: -4 }}>INCIDENT LOG</span>
                   <button type="button" onClick={() => window.location.href = "/admin"} style={{ ...navBtnStyle, cursor: "pointer" }}>ADMIN</button>
@@ -473,13 +476,13 @@ function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoom
         alignItems: "center",
         gap: 10,
         marginBottom: 12,
+        marginTop: -4,
         flexWrap: "wrap",
       }}
     >
-      <div style={{ color: "#d4b090", display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ fontSize: 12, fontWeight: "bold", letterSpacing: "0.14em" }}>
-          INTERACTIVE MAP • CLICK OR HOVER FOR DETAILS
-        </div>
+      <div style={{ fontSize: 11, letterSpacing: "0.14em", color: "#a07868" }}>
+        <span style={{ fontSize: 26, fontFamily: "'Bebas Neue',sans-serif", letterSpacing: "0.1em", verticalAlign: "middle", marginBottom: -4 }}>
+          INTERACTIVE STATE MAP</span>
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
         <select
@@ -759,7 +762,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
   const currentPan = pan || { x: 0, y: 0 };
   const highlightedState = selectedState || hoveredMapState;
   const mapTransform = `translate(${currentPan.x}%, ${currentPan.y}%) scale(${zoomLevel})`;
-  const markerBaseSize = isMobile ? 7 : 9;
+  const markerBaseSize = isMobile ? 5 : 7;
   const markerActiveSize = isMobile ? 11 : 13;
   const markerScale = 1 / Math.sqrt(zoomLevel);
 
