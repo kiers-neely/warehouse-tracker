@@ -476,12 +476,9 @@ function MapControls({ zoomLevel, selectedState, onStateChange, onZoomIn, onZoom
         flexWrap: "wrap",
       }}
     >
-      <div style={{ color: "#8a6a55", display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ fontSize: 11, fontWeight: "bold", letterSpacing: "0.14em" }}>
-          INTERACTIVE MAP
-        </div>
-        <div style={{ fontSize: 11, color: "#d4b090", letterSpacing: "0.06em" }}>
-          Click state or incident marker to enter summary view.
+      <div style={{ color: "#d4b090", display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ fontSize: 12, fontWeight: "bold", letterSpacing: "0.14em" }}>
+          INTERACTIVE MAP • CLICK OR HOVER FOR DETAILS
         </div>
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
