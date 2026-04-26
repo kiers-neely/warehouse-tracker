@@ -700,8 +700,9 @@ function StateIncidentPopup({ selectedState, fires, isMobile }) {
         right: isMobile ? "auto" : 12,
         bottom: isMobile ? "auto" : "auto",
         width: isMobile ? "min(38vw, 150px)" : 260,
-        maxHeight: isMobile ? "none" : "58%",
+        maxHeight: isMobile ? "45vh" : "58%",
         overflowY: "auto",
+        overflowX: "hidden",
         background: isMobile ? "rgba(0, 0, 0, 0.78)" : "rgba(0, 0, 0, 0.86)",
         border: "1px solid #333",
         borderRadius: isMobile ? "0 4px 4px 0" : 4,
@@ -735,7 +736,7 @@ function StateIncidentPopup({ selectedState, fires, isMobile }) {
             return (
               <li key={fire.id} style={{ display: "flex", gap: isMobile ? 4 : 6 }}>
                 <span style={{ color: "#ff6a00", flex: "0 0 auto" }}>•</span>
-                <span style={{ minWidth: 0 }}>
+                <span style={{ minWidth: 0, wordBreak: "break-word", overflowWrap: "break-word" }}>
                   <span style={{ color: "#f0d1b3" }}>{city}</span>
                   <span style={{ color: "#8a6a55" }}> - {buildingType}</span>
                 </span>
