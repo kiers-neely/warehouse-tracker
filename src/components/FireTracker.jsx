@@ -383,7 +383,7 @@ export default function FireTracker() {
                 scanBeamRun={scanBeamRun}
               />
               <div style={{ marginTop: 10, fontSize: 11, color: "#a07868", letterSpacing: "0.1em" }}>
-                CLICK STATE, CITY, OR SELECT FROM DROPDOWN BOX FOR SUMMARY VIEW • SCROLL TO ZOOM/PAN • CLICK RESET TO RETURN
+                CLICK STATE/CITY OR SELECT FROM DROPDOWN BOX FOR SUMMARY VIEW • SCROLL TO ZOOM/PAN • CLICK RESET TO RETURN
               </div>
             </div>
 
