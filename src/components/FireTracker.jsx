@@ -220,6 +220,15 @@ export default function FireTracker() {
   const [mapZoomOrigin, setMapZoomOrigin] = useState({ x: 50, y: 50 });
   const [selectedMapState, setSelectedMapState] = useState("");
   const [scanBeamRun, setScanBeamRun] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredFires = fires.filter((fire) => {
+    if (selectedMapState && fire.state !== selectedMapState) return false;
+    if (!normalizedSearch) return true;
+    return [fire.location, fire.title, fire.facility_type, fire.city, fire.state]
+      .some((field) => (field || "").toString().toLowerCase().includes(normalizedSearch));
+  });
 
   const handleMapStateChange = (state) => {
     setSelectedMapState(state);
@@ -382,19 +391,59 @@ export default function FireTracker() {
                 onStateClick={handleMapStateChange}
                 scanBeamRun={scanBeamRun}
               />
-              <div style={{ marginTop: 10, fontSize: 11, color: "#a07868", letterSpacing: "0.1em" }}>
-                CLICK STATE/CITY OR SELECT FROM DROPDOWN BOX FOR SUMMARY VIEW • SCROLL TO ZOOM/PAN • CLICK RESET TO RETURN
+              <div style={{ marginTop: 24, fontSize: 12, color: "#a07868", letterSpacing: "0.06em", lineHeight: 1.6 }}>
+                CLICK STATE OR MARKER TO ZOOM AND FILTER INCIDENT LOG TO THAT STATE • ZOOM/PAN EXPLORE • CLICK RESET TO RETURN • USE SEARCH BAR TO FILTER INCIDENTS BY KEYWORD (CITY, BUILDING TYPE, ETC)
               </div>
             </div>
 
             {/* Log Column */}
             <div style={{ flex: isMobile ? "1" : "0 0 40%", overflowY: "auto", background: "#050508" }}>
               <div style={{ padding: 12, color: "#a07868", borderBottom: "1px solid #1a1a1f",
-                display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 26, fontFamily: "'Bebas Neue',sans-serif", letterSpacing: "0.1em", verticalAlign: "middle", marginBottom: -4 }}>INCIDENT LOG</span>
-                  <button type="button" onClick={() => window.location.href = "/admin"} style={{ ...navBtnStyle, cursor: "pointer" }}>ADMIN</button>
+                display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 26, fontFamily: "'Bebas Neue',sans-serif", letterSpacing: "0.1em", verticalAlign: "middle", whiteSpace: "nowrap" }}>
+                  INCIDENT LOG
+                  {selectedMapState && (
+                    <span style={{ fontSize: 14, color: "#ff6a00", marginLeft: 10, letterSpacing: "0.06em", verticalAlign: "middle", fontFamily: "'DM Mono', monospace", fontWeight: "bold" }}>
+                      · {selectedMapState} ({filteredFires.length})
+                    </span>
+                  )}
+                </span>
+                <div style={{ display: "flex", flexDirection: "row", gap: 8, flex: 1, maxWidth: 320 }}>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="SEARCH INCIDENTS..."
+                    style={{
+                      flex: 1,
+                      background: "#0a0a0f",
+                      border: "1px solid #2a1a0f",
+                      color: "#e8e0d5",
+                      padding: "8px 10px",
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: 11,
+                      letterSpacing: "0.1em",
+                      outline: "none",
+                      borderRadius: 3,
+                    }}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      style={{ ...navBtnStyle, cursor: "pointer", padding: "6px 10px" }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
-              {fires.map((fire, i) => (
+              {filteredFires.length === 0 && (
+                <div style={{ padding: 20, fontSize: 11, color: "#666", textAlign: "center", letterSpacing: "0.1em" }}>
+                  NO INCIDENTS MATCH
+                </div>
+              )}
+              {filteredFires.map((fire, i) => (
                 <div
                   key={fire.id}
                   className={newIncidentIds.has(fire.id) ? "fire-row fire-row-new" : "fire-row"}
