@@ -1,8 +1,6 @@
 import "./globals.css";
-import { Analytics } from '@vercel/analytics/next';
-import { SpeedInsights } from '@vercel/speed-insights/next';
 
-const siteUrl = "https://www.warehousefire.watch";
+const siteUrl = "https://warehousefire.watch";
 
 export const metadata = {
   metadataBase: new URL(siteUrl),
@@ -35,10 +33,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preload" href="/us-map.svg" as="image" type="image/svg+xml" fetchPriority="high" />
+      </head>
       <body>
         {children}
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   );

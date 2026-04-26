@@ -412,7 +412,7 @@ export default function FireTracker() {
                   </div>
                   <div style={{ fontSize: 11, color: "#d4b090", marginTop: 4 }}>{fire.facility_type}</div>
                   <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>{fire.title}</div>
-                  {fire.url && <a href={fire.url} target="_blank" style={{ fontSize: 9, color: "#ff6a00", textDecoration: "none" }}>→ View Source</a>}
+                  {fire.url && <a href={/^https?:\/\//i.test(fire.url) ? fire.url : `https://${fire.url}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: "#ff6a00", textDecoration: "none" }}>→ View Source</a>}
                 </div>
               ))}
             </div>
@@ -1024,6 +1024,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
         <img
           src="/us-map.svg"
           alt="US Map"
+          fetchPriority="high"
           draggable={false}
           style={{
             position: "absolute",

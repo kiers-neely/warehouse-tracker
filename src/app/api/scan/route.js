@@ -57,6 +57,13 @@ function checkPublicSubmissionRateLimit(request) {
   };
 }
 
+function normalizeUrl(raw) {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 function normalizeIncidentLocation(fireData) {
   const city = fireData.city?.trim();
   const state = fireData.state?.trim().toUpperCase();
@@ -143,7 +150,7 @@ async function buildIncidentPayload(fireData, status) {
     latitude,
     longitude,
     facility_type: fireData.facility_type || null,
-    url: fireData.url || null,
+    url: normalizeUrl(fireData.url),
     date_occurred: fireData.date_occurred || null,
     status,
   };
