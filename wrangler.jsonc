@@ -23,5 +23,9 @@
 		// Enable image optimization
 		// see https://opennext.js.org/cloudflare/howtos/image
 		"binding": "IMAGES"
-	}
+	},
+	"vars": {
+		"NEXT_PUBLIC_SUPABASE_URL": "https://fssjnteljkmsriidbktp.supabase.co",
+		"PUBLIC_SUPABASE_KEY": "sb_publishable_UokJjDrHegO-zwEsqqzFlg_p_8g1YzV"
+     }
 }
