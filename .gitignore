@@ -6,3 +6,7 @@ out/
 .claude/
 src/.DS_Store
 src/app/.DS_Store
+# OpenNext / Cloudflare
+.open-next
+.wrangler
+.dev.vars
