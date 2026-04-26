@@ -175,7 +175,12 @@ export async function GET(request) {
 
     if (error) throw error;
 
-    return Response.json({ incidents: data });
+    const isPublic = adminPassword !== process.env.ADMIN_SECRET_PASSWORD;
+    return Response.json({ incidents: data }, {
+      headers: isPublic
+        ? { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" }
+        : { "Cache-Control": "no-store" },
+    });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
