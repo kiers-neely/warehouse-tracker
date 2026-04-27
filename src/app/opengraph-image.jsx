@@ -1,5 +1,4 @@
 import { ImageResponse } from "next/og";
-import { headers } from "next/headers";
 
 export const size = {
   width: 1200,
@@ -7,16 +6,6 @@ export const size = {
 };
 export const contentType = "image/png";
 export const alt = "US Warehouse Fire Tracker preview map";
-
-async function fetchAsset(origin, pathname) {
-  try {
-    const res = await fetch(`${origin}${pathname}`);
-    if (!res.ok) return null;
-    return res;
-  } catch {
-    return null;
-  }
-}
 
 const previewDots = [
   { left: "11.5%", top: "51%", color: "#ff4500" },
@@ -29,22 +18,26 @@ const previewDots = [
   { left: "83.5%", top: "36%", color: "#ffcc00" },
 ];
 
-export default async function Image() {
-  const headersList = await headers();
-  const host = headersList.get("host") || "warehousefire.watch";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  const origin = `${protocol}://${host}`;
+async function loadAsset(url, kind) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return kind === "text" ? await res.text() : await res.arrayBuffer();
+  } catch {
+    return null;
+  }
+}
 
-  const mapRes = await fetchAsset(origin, "/us-map.svg");
-  const mapSvg = mapRes ? await mapRes.text() : "";
+export default async function Image() {
+  const [mapSvg, bebasFontData, monoFontData] = await Promise.all([
+    loadAsset(new URL("./us-map.svg", import.meta.url), "text"),
+    loadAsset(new URL("./fonts/BebasNeue-Regular.ttf", import.meta.url), "buffer"),
+    loadAsset(new URL("./fonts/DMMono-Regular.ttf", import.meta.url), "buffer"),
+  ]);
+
   const mapDataUrl = mapSvg
     ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(mapSvg)))}`
     : null;
-
-  const bebasRes = await fetchAsset(origin, "/fonts/BebasNeue-Regular.ttf");
-  const monoRes = await fetchAsset(origin, "/fonts/DMMono-Regular.ttf");
-  const bebasFontData = bebasRes ? await bebasRes.arrayBuffer() : null;
-  const monoFontData = monoRes ? await monoRes.arrayBuffer() : null;
 
   return new ImageResponse(
     (
