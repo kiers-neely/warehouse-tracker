@@ -1,14 +1,23 @@
 import { ImageResponse } from "next/og";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { headers } from "next/headers";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const size = {
   width: 1200,
   height: 630,
 };
 export const contentType = "image/png";
 export const alt = "US Warehouse Fire Tracker preview map";
+
+async function fetchAsset(origin, pathname) {
+  try {
+    const res = await fetch(`${origin}${pathname}`);
+    if (!res.ok) return null;
+    return res;
+  } catch {
+    return null;
+  }
+}
 
 const previewDots = [
   { left: "11.5%", top: "51%", color: "#ff4500" },
@@ -22,21 +31,21 @@ const previewDots = [
 ];
 
 export default async function Image() {
-  const mapPath = path.join(process.cwd(), "public", "us-map.svg");
-  const bebasPath = path.join(process.cwd(), "src", "app", "fonts", "BebasNeue-Regular.ttf");
-  const monoPath = path.join(process.cwd(), "src", "app", "fonts", "DMMono-Regular.ttf");
-  const mapSvg = await readFile(mapPath, "utf8");
-  const mapDataUrl = `data:image/svg+xml;base64,${Buffer.from(mapSvg).toString("base64")}`;
-  let bebasFontData = null;
-  let monoFontData = null;
+  const headersList = await headers();
+  const host = headersList.get("host") || "warehousefire.watch";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const origin = `${protocol}://${host}`;
 
-  try {
-    bebasFontData = await readFile(bebasPath);
-  } catch {}
+  const mapRes = await fetchAsset(origin, "/us-map.svg");
+  const mapSvg = mapRes ? await mapRes.text() : "";
+  const mapDataUrl = mapSvg
+    ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(mapSvg)))}`
+    : null;
 
-  try {
-    monoFontData = await readFile(monoPath);
-  } catch {}
+  const bebasRes = await fetchAsset(origin, "/fonts/BebasNeue-Regular.ttf");
+  const monoRes = await fetchAsset(origin, "/fonts/DMMono-Regular.ttf");
+  const bebasFontData = bebasRes ? await bebasRes.arrayBuffer() : null;
+  const monoFontData = monoRes ? await monoRes.arrayBuffer() : null;
 
   return new ImageResponse(
     (
@@ -136,20 +145,22 @@ export default async function Image() {
               background: "rgba(10, 10, 15, 0.88)",
             }}
           >
-            <img
-              src={mapDataUrl}
-              alt=""
-              style={{
-                position: "absolute",
-                left: 22,
-                top: 22,
-                width: 516,
-                height: 366,
-                objectFit: "contain",
-                opacity: 0.82,
-                filter: "invert(1)",
-              }}
-            />
+            {mapDataUrl && (
+              <img
+                src={mapDataUrl}
+                alt=""
+                style={{
+                  position: "absolute",
+                  left: 22,
+                  top: 22,
+                  width: 516,
+                  height: 366,
+                  objectFit: "contain",
+                  opacity: 0.82,
+                  filter: "invert(1)",
+                }}
+              />
+            )}
             {previewDots.map((dot, index) => (
               <div
                 key={index}
