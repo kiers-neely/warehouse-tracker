@@ -1,5 +1,8 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
+export const runtime = "nodejs";
 export const size = {
   width: 1200,
   height: 630,
@@ -18,26 +21,22 @@ const previewDots = [
   { left: "83.5%", top: "36%", color: "#ffcc00" },
 ];
 
-async function loadAsset(url, kind) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return kind === "text" ? await res.text() : await res.arrayBuffer();
-  } catch {
-    return null;
-  }
-}
-
 export default async function Image() {
-  const [mapSvg, bebasFontData, monoFontData] = await Promise.all([
-    loadAsset(new URL("./us-map.svg", import.meta.url), "text"),
-    loadAsset(new URL("./fonts/BebasNeue-Regular.ttf", import.meta.url), "buffer"),
-    loadAsset(new URL("./fonts/DMMono-Regular.ttf", import.meta.url), "buffer"),
-  ]);
+  const mapPath = path.join(process.cwd(), "public", "us-map.svg");
+  const bebasPath = path.join(process.cwd(), "src", "app", "fonts", "BebasNeue-Regular.ttf");
+  const monoPath = path.join(process.cwd(), "src", "app", "fonts", "DMMono-Regular.ttf");
+  const mapSvg = await readFile(mapPath, "utf8");
+  const mapDataUrl = `data:image/svg+xml;base64,${Buffer.from(mapSvg).toString("base64")}`;
+  let bebasFontData = null;
+  let monoFontData = null;
 
-  const mapDataUrl = mapSvg
-    ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(mapSvg)))}`
-    : null;
+  try {
+    bebasFontData = await readFile(bebasPath);
+  } catch {}
+
+  try {
+    monoFontData = await readFile(monoPath);
+  } catch {}
 
   return new ImageResponse(
     (
@@ -137,22 +136,20 @@ export default async function Image() {
               background: "rgba(10, 10, 15, 0.88)",
             }}
           >
-            {mapDataUrl && (
-              <img
-                src={mapDataUrl}
-                alt=""
-                style={{
-                  position: "absolute",
-                  left: 22,
-                  top: 22,
-                  width: 516,
-                  height: 366,
-                  objectFit: "contain",
-                  opacity: 0.82,
-                  filter: "invert(1)",
-                }}
-              />
-            )}
+            <img
+              src={mapDataUrl}
+              alt=""
+              style={{
+                position: "absolute",
+                left: 22,
+                top: 22,
+                width: 516,
+                height: 366,
+                objectFit: "contain",
+                opacity: 0.82,
+                filter: "invert(1)",
+              }}
+            />
             {previewDots.map((dot, index) => (
               <div
                 key={index}
