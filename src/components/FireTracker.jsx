@@ -413,7 +413,7 @@ export default function FireTracker() {
                   border: "1px solid #2a1a0f",
                   background: "linear-gradient(180deg, rgba(26,10,5,0.55) 0%, rgba(10,10,15,0.4) 100%)",
                   borderRadius: 4,
-                  padding: isMobile ? "12px 10px 10px" : "14px 14px 10px",
+                  padding: isMobile ? "12px 10px 10px" : "10px 14px 12px",
                   display: "flex",
                   flexWrap: "wrap",
                   gap: isMobile ? "6px 14px" : "8px 22px",
@@ -422,18 +422,18 @@ export default function FireTracker() {
                   fontFamily: "'DM Mono', monospace",
                 }}
               >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: isMobile ? 6 : 8, fontSize: isMobile ? 9 : 11, letterSpacing: "0.14em", color: "#d4b090" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: isMobile ? 6 : 8, fontSize: isMobile ? 9 : 14, letterSpacing: "0.14em", color: "#d4b090" }}>
                   <span style={{ display: "inline-flex", gap: 3 }}>
                     <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: "50%", background: FIRE_UNKNOWN, boxShadow: `0 0 7px ${FIRE_UNKNOWN}99` }} />
                     <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: "50%", background: FIRE_UNKNOWN_ALT, boxShadow: `0 0 7px ${FIRE_UNKNOWN_ALT}99` }} />
                   </span>
                   UNDER INVESTIGATION
                 </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: isMobile ? 6 : 8, fontSize: isMobile ? 9 : 11, letterSpacing: "0.14em", color: "#d4b090" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: isMobile ? 6 : 8, fontSize: isMobile ? 9 : 14, letterSpacing: "0.14em", color: "#d4b090" }}>
                   <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: "50%", background: FIRE_ACCIDENT, boxShadow: `0 0 7px ${FIRE_ACCIDENT}99` }} />
                   ACCIDENT
                 </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: isMobile ? 6 : 8, fontSize: isMobile ? 9 : 11, letterSpacing: "0.14em", color: "#d4b090" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: isMobile ? 6 : 8, fontSize: isMobile ? 9 : 14, letterSpacing: "0.14em", color: "#d4b090" }}>
                   <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: "50%", background: FIRE_ARSON, boxShadow: `0 0 7px ${FIRE_ARSON}99` }} />
                   ARSON
                 </span>
@@ -857,7 +857,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
   const currentPan = pan || { x: 0, y: 0 };
   const highlightedState = selectedState || hoveredMapState;
   const mapTransform = `translate(${currentPan.x}%, ${currentPan.y}%) scale(${zoomLevel})`;
-  const markerBaseSize = isMobile ? 5 : 7;
+  const markerBaseSize = isMobile ? 5 : 8;
   const markerActiveSize = isMobile ? 11 : 13;
   const markerScale = 1 / Math.sqrt(zoomLevel);
 
