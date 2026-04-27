@@ -7,7 +7,7 @@
 		"nodejs_compat",
 		"global_fetch_strictly_public"
 	],
-	"workers_dev": false,
+	"workers_dev": true,
 	"placement": {
 		"mode": "smart"
 	},

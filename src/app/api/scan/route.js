@@ -64,6 +64,14 @@ function normalizeUrl(raw) {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+function determineCause(fireData) {
+  const cause = fireData.cause?.trim().toLowerCase();
+  if (!cause) return "unknown";
+  if (cause === "arson") return "arson";
+  if (cause === "accident") return "accident";
+  return "unknown";
+}
+
 function normalizeIncidentLocation(fireData) {
   const city = fireData.city?.trim();
   const state = fireData.state?.trim().toUpperCase();
@@ -152,6 +160,7 @@ async function buildIncidentPayload(fireData, status) {
     facility_type: fireData.facility_type || null,
     url: normalizeUrl(fireData.url),
     date_occurred: fireData.date_occurred || null,
+    cause: determineCause(fireData),
     status,
   };
 }
