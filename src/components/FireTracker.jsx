@@ -31,6 +31,7 @@ const MAP_PAN_BOUND_MULTIPLIER = 1.85;
 const STATE_FOCUS_ZOOM_MULTIPLIER = 1.22;
 const RIGHT_CLICK_PAN_SPEED = 1.4;
 const TRACKPAD_PAN_SPEED = 0.20;
+const TOUCH_PAN_SPEED = 2;
 const SCAN_BEAM_DURATION_MS = 6000;
 const statePathCache = new Map();
 const stateInteractionPathCache = [];
@@ -391,8 +392,8 @@ export default function FireTracker() {
                 onStateClick={handleMapStateChange}
                 scanBeamRun={scanBeamRun}
               />
-              <div style={{ marginTop: 24, fontSize: 12, color: "#a07868", letterSpacing: "0.06em", lineHeight: 1.6 }}>
-                CLICK STATE OR MARKER TO ZOOM AND FILTER INCIDENT LOG TO THAT STATE • ZOOM/PAN EXPLORE • CLICK RESET TO RETURN • USE SEARCH BAR TO FILTER INCIDENTS BY KEYWORD (CITY, BUILDING TYPE, ETC)
+              <div style={{ marginTop: 24, fontSize: 12, color: "#a07868", letterSpacing: "0.06em", lineHeight: 1.1 }}>
+                CLICK STATE OR MARKER TO ZOOM AND FILTER INCIDENT LOG TO THAT STATE • ZOOM/PAN EXPLORE • USE SEARCH BAR TO FILTER INCIDENTS BY KEYWORD (CITY, BUILDING TYPE, ETC) • CLICK RESET TO RETURN
               </div>
             </div>
 
@@ -805,6 +806,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
   const rightPanStartRef = useRef(null);
   const activeTouchPointersRef = useRef(new Map());
   const pinchStartRef = useRef(null);
+  const singleTouchPanStartRef = useRef(null);
   const [isRightPanning, setIsRightPanning] = useState(false);
   const [hoveredMapState, setHoveredMapState] = useState(null);
   const [showScanBeam, setShowScanBeam] = useState(false);
@@ -916,12 +918,19 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
       const touches = getTouchPointers();
       if (touches.length === 2) {
         event.preventDefault();
-        const center = getTouchCenter(touches[0], touches[1]);
         pinchStartRef.current = {
           distance: getTouchDistance(touches[0], touches[1]),
           zoomLevel,
         };
-        setZoomOrigin(getMapPointerPercent(center.clientX, center.clientY));
+        setZoomOrigin({ x: 50, y: 50 });
+        singleTouchPanStartRef.current = null;
+      } else if (touches.length === 1 && zoomLevel > 1) {
+        singleTouchPanStartRef.current = {
+          x: event.clientX,
+          y: event.clientY,
+          pan: currentPan,
+          zoomLevel,
+        };
       }
       return;
     }
@@ -945,36 +954,49 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
     if (event.pointerType === "touch") {
       if (!activeTouchPointersRef.current.has(event.pointerId)) return;
 
-      event.preventDefault();
       activeTouchPointersRef.current.set(event.pointerId, {
         clientX: event.clientX,
         clientY: event.clientY,
       });
 
       const touches = getTouchPointers();
-      if (touches.length < 2) return;
 
-      const pinchStart = pinchStartRef.current;
-      const currentDistance = getTouchDistance(touches[0], touches[1]);
-      const center = getTouchCenter(touches[0], touches[1]);
+      if (touches.length >= 2) {
+        event.preventDefault();
+        const pinchStart = pinchStartRef.current;
+        const currentDistance = getTouchDistance(touches[0], touches[1]);
 
-      if (!pinchStart || pinchStart.distance <= 0) {
-        pinchStartRef.current = {
-          distance: currentDistance,
-          zoomLevel,
-        };
+        if (!pinchStart || pinchStart.distance <= 0) {
+          pinchStartRef.current = {
+            distance: currentDistance,
+            zoomLevel,
+          };
+          return;
+        }
+
+        const nextLevel = clamp(
+          Number((pinchStart.zoomLevel * (currentDistance / pinchStart.distance)).toFixed(2)),
+          MIN_MAP_ZOOM,
+          MAX_MAP_ZOOM
+        );
+
+        setZoomLevel(nextLevel);
+        setPan((current) => clampMapPan(current, nextLevel));
         return;
       }
 
-      const nextLevel = clamp(
-        Number((pinchStart.zoomLevel * (currentDistance / pinchStart.distance)).toFixed(2)),
-        MIN_MAP_ZOOM,
-        MAX_MAP_ZOOM
-      );
+      const panStart = singleTouchPanStartRef.current;
+      const panBounds = mapRef.current?.getBoundingClientRect();
+      if (!panStart || !panBounds) return;
 
-      setZoomOrigin(getMapPointerPercent(center.clientX, center.clientY));
-      setZoomLevel(nextLevel);
-      setPan((current) => clampMapPan(current, nextLevel));
+      event.preventDefault();
+      const panDeltaX = ((event.clientX - panStart.x) / panBounds.width) * 100 / panStart.zoomLevel * TOUCH_PAN_SPEED;
+      const panDeltaY = ((event.clientY - panStart.y) / panBounds.height) * 100 / panStart.zoomLevel * TOUCH_PAN_SPEED;
+
+      setPan(clampMapPan({
+        x: panStart.pan.x + panDeltaX,
+        y: panStart.pan.y + panDeltaY,
+      }, panStart.zoomLevel));
       return;
     }
 
@@ -999,6 +1021,9 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
       if (activeTouchPointersRef.current.size < 2) {
         pinchStartRef.current = null;
       }
+      if (activeTouchPointersRef.current.size === 0) {
+        singleTouchPanStartRef.current = null;
+      }
     }
 
     if (rightPanStartRef.current) {
@@ -1022,7 +1047,7 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
         overflow: "hidden",
         background: "radial-gradient(circle, rgba(255, 68, 0, 0.22) 0%, rgba(0, 0, 0, 0.05) 50%, transparent 90%)",
         cursor: isRightPanning ? "ew-resize" : "default",
-        touchAction: "none",
+        touchAction: zoomLevel > 1 ? "none" : "pan-y",
         userSelect: "none",
       }}
     >
