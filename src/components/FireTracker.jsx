@@ -21,7 +21,21 @@ const US_STATES_COORDS = {
   WI: [60.2, 25.4], WY: [30.7, 30.5], DC: [83.6, 42.6],
 };
 
-const FIRE_COLORS = ["#ff4500", "#ff6a00", "#ff8c00", "#ffa500", "#ffcc00"];
+const FIRE_UNKNOWN = "#c97a1a";
+const FIRE_UNKNOWN_ALT = "#d9b523";
+const FIRE_ACCIDENT = "#5cc043";
+const FIRE_ARSON = "#d52602";
+
+function getFireColor(cause, index = 0) {
+  switch ((cause || "").trim().toLowerCase()) {
+    case "arson":
+      return FIRE_ARSON;
+    case "accident":
+      return FIRE_ACCIDENT;
+    default:
+      return index % 2 === 0 ? FIRE_UNKNOWN : FIRE_UNKNOWN_ALT;
+  }
+}
 const MAP_WIDTH = 959;
 const MAP_HEIGHT = 593;
 const US_MAP_VIEWBOX = "0 0 959 593";
@@ -227,7 +241,7 @@ export default function FireTracker() {
   const filteredFires = fires.filter((fire) => {
     if (selectedMapState && fire.state !== selectedMapState) return false;
     if (!normalizedSearch) return true;
-    return [fire.location, fire.title, fire.facility_type, fire.city, fire.state]
+    return [fire.location, fire.title, fire.facility_type, fire.city, fire.state, fire.cause]
       .some((field) => (field || "").toString().toLowerCase().includes(normalizedSearch));
   });
 
@@ -392,8 +406,37 @@ export default function FireTracker() {
                 onStateClick={handleMapStateChange}
                 scanBeamRun={scanBeamRun}
               />
-              <div style={{ marginTop: 24, fontSize: 12, color: "#a07868", letterSpacing: "0.06em", lineHeight: 1.1 }}>
-                CLICK STATE OR MARKER TO ZOOM AND FILTER INCIDENT LOG TO THAT STATE • ZOOM/PAN EXPLORE • USE SEARCH BAR TO FILTER INCIDENTS BY KEYWORD (CITY, BUILDING TYPE, ETC) • CLICK RESET TO RETURN
+              <div
+                style={{
+                  marginTop: 14,
+                  position: "relative",
+                  border: "1px solid #2a1a0f",
+                  background: "linear-gradient(180deg, rgba(26,10,5,0.55) 0%, rgba(10,10,15,0.4) 100%)",
+                  borderRadius: 4,
+                  padding: isMobile ? "12px 10px 10px" : "14px 14px 10px",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: isMobile ? "6px 14px" : "8px 22px",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "'DM Mono', monospace",
+                }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: isMobile ? 6 : 8, fontSize: isMobile ? 9 : 11, letterSpacing: "0.14em", color: "#d4b090" }}>
+                  <span style={{ display: "inline-flex", gap: 3 }}>
+                    <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: "50%", background: FIRE_UNKNOWN, boxShadow: `0 0 7px ${FIRE_UNKNOWN}99` }} />
+                    <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: "50%", background: FIRE_UNKNOWN_ALT, boxShadow: `0 0 7px ${FIRE_UNKNOWN_ALT}99` }} />
+                  </span>
+                  UNDER INVESTIGATION
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: isMobile ? 6 : 8, fontSize: isMobile ? 9 : 11, letterSpacing: "0.14em", color: "#d4b090" }}>
+                  <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: "50%", background: FIRE_ACCIDENT, boxShadow: `0 0 7px ${FIRE_ACCIDENT}99` }} />
+                  ACCIDENT
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: isMobile ? 6 : 8, fontSize: isMobile ? 9 : 11, letterSpacing: "0.14em", color: "#d4b090" }}>
+                  <span style={{ width: isMobile ? 9 : 11, height: isMobile ? 9 : 11, borderRadius: "50%", background: FIRE_ARSON, boxShadow: `0 0 7px ${FIRE_ARSON}99` }} />
+                  ARSON
+                </span>
               </div>
             </div>
 
@@ -457,7 +500,7 @@ export default function FireTracker() {
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                    <span style={{ color: FIRE_COLORS[i % 5], fontWeight: "bold" }}>{fire.location}</span>
+                    <span style={{ color: getFireColor(fire.cause, i), fontWeight: "bold" }}>{fire.location}</span>
                     <span style={{ color: "#777" }}>{fire.date_occurred}</span>
                   </div>
                   <div style={{ fontSize: 11, color: "#d4b090", marginTop: 4 }}>{fire.facility_type}</div>
@@ -1149,11 +1192,11 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
                 top: `${y}%`,
                 width: markerSize,
                 height: markerSize,
-                background: FIRE_COLORS[i % 5],
+                background: getFireColor(fire.cause, i),
                 borderRadius: "50%",
                 transform: `translate(-50%, -50%) scale(${markerScale})`,
                 cursor: "pointer",
-                boxShadow: active ? `0 0 15px ${FIRE_COLORS[i % 5]}` : "none",
+                boxShadow: active ? `0 0 15px ${getFireColor(fire.cause, i)}` : "none",
                 zIndex: active ? 100 : 2,
                 transition: "width 0.2s, height 0.2s, box-shadow 0.2s",
               }}
