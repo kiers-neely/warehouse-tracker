@@ -13,7 +13,7 @@ export const metadata = {
     siteName: "US Warehouse Fire Tracker",
     images: [
       {
-        url: "/opengraph-image",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "US Warehouse Fire Tracker preview map",
@@ -26,7 +26,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "US Warehouse Fire Tracker",
     description: "Live tracking of warehouse and industrial facility fires across the United States",
-    images: ["/opengraph-image"],
+    images: ["/og-image.png"],
   },
 };
 
