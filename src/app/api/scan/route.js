@@ -295,6 +295,53 @@ export async function POST(request) {
 }
 
 
+  // --- ADMIN EDIT (Update fields of a pending entry, optionally re-approve) ---
+  if (action === 'edit') {
+    if (admin_password !== process.env.ADMIN_SECRET_PASSWORD) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const updates = {};
+
+      if (fireData.title !== undefined) updates.title = fireData.title;
+      if (fireData.facility_type !== undefined) updates.facility_type = fireData.facility_type || null;
+      if (fireData.date_occurred !== undefined) updates.date_occurred = fireData.date_occurred || null;
+      if (fireData.url !== undefined) updates.url = normalizeUrl(fireData.url);
+      if (fireData.cause !== undefined) updates.cause = determineCause({ cause: fireData.cause });
+
+      const cityChanged = fireData.city !== undefined;
+      const stateChanged = fireData.state !== undefined;
+
+      if (cityChanged || stateChanged) {
+        const { city, state, location } = normalizeIncidentLocation({
+          city: fireData.city,
+          state: fireData.state,
+        });
+        updates.city = city;
+        updates.state = state;
+        updates.location = location;
+
+        const geo = await geocodeCityState(city, state);
+        updates.latitude = geo.latitude;
+        updates.longitude = geo.longitude;
+      }
+
+      if (fireData.status !== undefined) updates.status = fireData.status;
+
+      const { data, error } = await supabaseAdmin
+        .from('incidents')
+        .update(updates)
+        .eq('id', id)
+        .select();
+
+      if (error) throw error;
+      return Response.json({ message: "Incident updated", entry: data?.[0] });
+    } catch (err) {
+      return Response.json({ error: err.message }, { status: 500 });
+    }
+  }
+
   // --- LOGIC 1: ADMIN MODERATION (Approve or Delete) ---
   if (action === 'moderate') {
     if (admin_password !== process.env.ADMIN_SECRET_PASSWORD) {
