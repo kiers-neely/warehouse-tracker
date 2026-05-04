@@ -160,6 +160,7 @@ async function buildIncidentPayload(fireData, status) {
     facility_type: fireData.facility_type || null,
     url: normalizeUrl(fireData.url),
     date_occurred: fireData.date_occurred || null,
+    date_added: fireData.date_added || null,
     cause: determineCause(fireData),
     status,
   };
@@ -179,7 +180,8 @@ export async function GET(request) {
     let query = supabaseAdmin
       .from("incidents")
       .select("*")
-      .order("date_occurred", { ascending: false });
+      .order("date_occurred", { ascending: false })
+      .order("date_added", { ascending: false });
 
     if (adminPassword === process.env.ADMIN_SECRET_PASSWORD) {
       if (status) query = query.eq("status", status);
@@ -225,7 +227,8 @@ export async function POST(request) {
         .from("incidents")
         .select("*")
         .eq("status", "pending")
-        .order("date_occurred", { ascending: false });
+        .order("date_occurred", { ascending: false })
+        .order("date_added", { ascending: false });
 
       if (error) throw error;
 
