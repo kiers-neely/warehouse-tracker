@@ -160,7 +160,7 @@ async function buildIncidentPayload(fireData, status) {
     facility_type: fireData.facility_type || null,
     url: normalizeUrl(fireData.url),
     date_occurred: fireData.date_occurred || null,
-    date_added: fireData.date_added || null,
+    date_added: fireData.date_added,
     cause: determineCause(fireData),
     status,
   };
