@@ -132,7 +132,7 @@ export default function FireTracker() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [highlightedFire, setHighlightedFire] = useState(null);
   const [hoveredFire, setHoveredFire] = useState(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(null);
   const [adminPassword, setAdminPassword] = useState("");
   const [newIncidentIds, setNewIncidentIds] = useState(new Set());
   const knownIncidentIdsRef = useRef(new Set());
@@ -262,6 +262,28 @@ export default function FireTracker() {
     setPan(getStateViewPan(state, nextLevel));
   };
 
+  // Render a stable skeleton until isMobile is known on the client.
+  // This prevents the desktop->mobile layout flip that causes huge CLS scores.
+  if (isMobile === null) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#0a0a0f",
+          color: "#a07868",
+          fontFamily: "'DM Mono', monospace",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ fontSize: 12, letterSpacing: "0.3em", opacity: 0.7 }}>
+          LOADING…
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       minHeight: "100vh", height: isMobile ? "auto" : "100vh",
@@ -320,7 +342,7 @@ export default function FireTracker() {
             <button onClick={() => fetchApprovedFires({ playScan: true })} style={navBtnStyle}>↺ REFRESH</button>
             <div style={{ background: "#1a0a05", border: "1px solid #a04a2a", borderRadius: 4, padding: "6px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
-              <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4 }}>{fires.length}</span>
+              <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", fontWeight: "bold", marginLeft: 4, display: "inline-block", minWidth: "2.4ch", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fires.length}</span>
             </div>
           </div>
         ) : (
@@ -333,7 +355,7 @@ export default function FireTracker() {
             </div>
             <div style={{ background: "#1a0a05", border: "1px solid #a04a2a", borderRadius: 4, padding: "6px 12px", display: "flex", flexDirection: "row", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, color: "#8a6a55", letterSpacing: "0.1em", fontWeight: 500 }}>FIRES TRACKED:</span>
-              <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", marginBottom: -4 }}>{fires.length}</span>
+              <span style={{ fontSize: "clamp(18px, 4vw, 40px)", color: "#ff4500", fontFamily: "'Bebas Neue',sans-serif", marginBottom: -4, display: "inline-block", minWidth: "2.4ch", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fires.length}</span>
             </div>
           </div>
         )}
@@ -482,7 +504,28 @@ export default function FireTracker() {
                   )}
                 </div>
               </div>
-              {filteredFires.length === 0 && (
+              {!hasLoadedIncidentsRef.current && fires.length === 0 && (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={`skeleton-${i}`}
+                    aria-hidden="true"
+                    style={{
+                      padding: "15px 20px",
+                      borderBottom: "1px solid #120d09",
+                      opacity: 0.35,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                      <span style={{ display: "inline-block", height: 12, width: "40%", background: "#1a0f08", borderRadius: 2 }} />
+                      <span style={{ display: "inline-block", height: 12, width: "20%", background: "#1a0f08", borderRadius: 2 }} />
+                    </div>
+                    <div style={{ height: 11, width: "55%", background: "#15100a", borderRadius: 2, marginTop: 6 }} />
+                    <div style={{ height: 10, width: "75%", background: "#120d09", borderRadius: 2, marginTop: 6 }} />
+                    <div style={{ height: 9, width: "25%", background: "#120d09", borderRadius: 2, marginTop: 6 }} />
+                  </div>
+                ))
+              )}
+              {hasLoadedIncidentsRef.current && filteredFires.length === 0 && (
                 <div style={{ padding: 20, fontSize: 11, color: "#666", textAlign: "center", letterSpacing: "0.1em" }}>
                   NO INCIDENTS MATCH
                 </div>
@@ -745,7 +788,6 @@ function StateInteractionLayer({ selectedState, onHoverState, onStateClick }) {
           key={value}
           aria-label={`Focus ${label}`}
           role="button"
-          tabIndex={0}
           d={pathD}
           fill="transparent"
           stroke="transparent"
@@ -755,6 +797,7 @@ function StateInteractionLayer({ selectedState, onHoverState, onStateClick }) {
             cursor: "pointer",
             outline: "none",
             pointerEvents: "all",
+            WebkitTapHighlightColor: "transparent",
           }}
           onPointerEnter={() => {
             if (!selectedState) onHoverState(value);
@@ -765,11 +808,12 @@ function StateInteractionLayer({ selectedState, onHoverState, onStateClick }) {
           onClick={(event) => {
             event.stopPropagation();
             onStateClick(value);
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter" && event.key !== " ") return;
-            event.preventDefault();
-            onStateClick(value);
+            // Defense in depth: if anything still managed to focus this
+            // path on tap (iOS quirks), drop focus so the browser doesn't
+            // try to scroll the transforming element into view mid-transition.
+            if (typeof event.currentTarget.blur === "function") {
+              event.currentTarget.blur();
+            }
           }}
         />
       ))}
@@ -856,7 +900,11 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
   const currentZoomOrigin = zoomOrigin || { x: 50, y: 50 };
   const currentPan = pan || { x: 0, y: 0 };
   const highlightedState = selectedState || hoveredMapState;
-  const mapTransform = `translate(${currentPan.x}%, ${currentPan.y}%) scale(${zoomLevel})`;
+  // translate3d() + backface-visibility forces a GPU-composited layer on iOS Safari,
+  // which avoids a rendering glitch where rapid transform changes (e.g. jumping
+  // from one focused state to another while a previous transition is mid-flight)
+  // can flash a blank frame on the 2D-rendering path.
+  const mapTransform = `translate3d(${currentPan.x}%, ${currentPan.y}%, 0) scale(${zoomLevel})`;
   const markerBaseSize = isMobile ? 5 : 8;
   const markerActiveSize = isMobile ? 11 : 13;
   const markerScale = 1 / Math.sqrt(zoomLevel);
@@ -1135,8 +1183,13 @@ function USMap({ fires, hoveredFire, setHoveredFire, highlightedFire, isMobile, 
           inset: 0,
           transform: mapTransform,
           transformOrigin: `${currentZoomOrigin.x}% ${currentZoomOrigin.y}%`,
-          transition: "transform 700ms cubic-bezier(0.22, 1, 0.36, 1), transform-origin 700ms cubic-bezier(0.22, 1, 0.36, 1)",
-          willChange: "transform, transform-origin",
+          // Only transition transform — transform-origin transitions are buggy
+          // on iOS Safari and can produce blank frames when interrupted. Origin
+          // is always (50,50) on mobile state-clicks, so snapping it is fine.
+          transition: "transform 700ms cubic-bezier(0.22, 1, 0.36, 1)",
+          willChange: "transform",
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
         }}
       >
         <img
