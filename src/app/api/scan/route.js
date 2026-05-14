@@ -160,7 +160,6 @@ async function buildIncidentPayload(fireData, status) {
     facility_type: fireData.facility_type || null,
     url: normalizeUrl(fireData.url),
     date_occurred: fireData.date_occurred || null,
-    date_added: new Date().toISOString(),
     cause: determineCause(fireData),
     status,
   };
@@ -237,66 +236,6 @@ export async function POST(request) {
       return Response.json({ error: err.message }, { status: 500 });
     }
   }
-
-  // temporary backfill action for existing entries without location - can be removed in the future
-  if (action === "backfill_geocodes") {
-  if (admin_password !== process.env.ADMIN_SECRET_PASSWORD) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const { data: incidents, error: fetchError } = await supabaseAdmin
-      .from("incidents")
-      .select("id, city, state, location")
-      .or("latitude.is.null,longitude.is.null")
-      .not("city", "is", null)
-      .not("state", "is", null)
-      .limit(25);
-
-    if (fetchError) throw fetchError;
-
-    const results = [];
-
-    for (const incident of incidents || []) {
-      try {
-        const geo = await geocodeCityState(incident.city, incident.state);
-
-        const { error: updateError } = await supabaseAdmin
-          .from("incidents")
-          .update({
-            latitude: geo.latitude,
-            longitude: geo.longitude,
-          })
-          .eq("id", incident.id);
-
-        if (updateError) throw updateError;
-
-        results.push({
-          id: incident.id,
-          location: incident.location,
-          status: "updated",
-        });
-
-        await new Promise((resolve) => setTimeout(resolve, 1100));
-      } catch (err) {
-        results.push({
-          id: incident.id,
-          location: incident.location,
-          status: "failed",
-          error: err.message,
-        });
-      }
-    }
-
-    return Response.json({
-      message: `Backfill attempted for ${results.length} incidents`,
-      results,
-    });
-  } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 });
-  }
-}
-
 
   // --- ADMIN EDIT (Update fields of a pending entry, optionally re-approve) ---
   if (action === 'edit') {
